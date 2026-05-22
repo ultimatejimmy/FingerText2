@@ -28,6 +28,7 @@
 //DEALINGS IN THE SOFTWARE.
 
 #include "PluginDefinition.h"
+#include <exception>
 
 extern FuncItem funcItem[MENU_LENGTH];
 extern NppData nppData;
@@ -114,6 +115,15 @@ extern "C" __declspec(dllexport) FuncItem * getFuncsArray(int *nbF)
 
 extern "C" __declspec(dllexport) void beNotified(SCNotification *notifyCode)
 {
+    try
+    {
+        unsigned int code = notifyCode->nmhdr.code;
+        if (code == NPPN_BUFFERACTIVATED || code == NPPN_FILESAVED || code == NPPN_READY || code == NPPN_SHUTDOWN)
+        {
+            char msg[128];
+            ::wsprintfA(msg, "[FingerText] beNotified: code=0x%X\n", code);
+            ::OutputDebugStringA(msg);
+        }
     switch(notifyCode->nmhdr.code)
     {
         //case NPPN_FILEOPENED:
@@ -225,6 +235,17 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification *notifyCode)
             fingerTextListActive();
             break;
         // TODO: consider using SC_MOD_CHANGEANNOTATION to shutdown use of annotation in snippet editing mode
+    }
+    }
+    catch (const std::exception& e)
+    {
+        ::OutputDebugStringA("[FingerText] beNotified std::exception: ");
+        ::OutputDebugStringA(e.what());
+        ::OutputDebugStringA("\n");
+    }
+    catch (...)
+    {
+        ::OutputDebugStringA("[FingerText] beNotified unknown exception\n");
     }
 }
 
