@@ -155,6 +155,29 @@ wchar_t* g_tempWindowKey;
 
 //TODO: Add icon to messageboxes
 
+// Parse a "<scope>trigger" formatted string into freshly-allocated scope and trigger strings.
+// Returns true on success. On false nothing is allocated; caller must bail out without touching outScope/outTrigger.
+static bool parseScopeTrigger(const char* buffer, char*& outScope, char*& outTrigger)
+{
+    if (buffer == nullptr || buffer[0] != '<') return false;
+    const char* arrow = ::strchr(buffer, '>');
+    if (arrow == nullptr) return false;
+
+    ptrdiff_t scopeLen  = arrow - buffer - 1;
+    if (scopeLen < 0) return false;
+
+    ptrdiff_t triggerLen = static_cast<ptrdiff_t>(::strlen(buffer)) - scopeLen - 2;
+    if (triggerLen < 0) return false;
+
+    outScope   = new char[static_cast<size_t>(scopeLen)  + 1];
+    outTrigger = new char[static_cast<size_t>(triggerLen) + 1];
+    ::strncpy(outScope,   buffer + 1,                        static_cast<size_t>(scopeLen));
+    outScope[scopeLen] = '\0';
+    ::strncpy(outTrigger, buffer + 1 + scopeLen + 1, static_cast<size_t>(triggerLen));
+    outTrigger[triggerLen] = '\0';
+    return true;
+}
+
 // Initialize your plugin data here. Called while plugin loading. This runs before setinfo.
 void pluginInit(HANDLE hModule)
 {
@@ -574,16 +597,14 @@ void insertSnippet()
     char* buffer = toCharArray(bufferWide);
     buffer = quickStrip(buffer, ' ');
 
-    int scopeLength = ::strchr(buffer,'>') - buffer - 1;
-    int triggerTextLength = strlen(buffer)-scopeLength - 2;
-    char* tempTriggerText = new char [ triggerTextLength+1];
-    char* tempScope = new char[scopeLength+1];
-    
-    strncpy(tempScope,buffer+1,scopeLength);
-    tempScope[scopeLength] = '\0';
-    strncpy(tempTriggerText,buffer+1+scopeLength+1,triggerTextLength);
-    tempTriggerText[triggerTextLength] = '\0';
-    
+    char* tempScope = nullptr;
+    char* tempTriggerText = nullptr;
+    if (!parseScopeTrigger(buffer, tempScope, tempTriggerText))
+    {
+        delete [] buffer;
+        delete [] bufferWide;
+        return;
+    }
     delete [] buffer;
 
     diagActivate(tempTriggerText);
@@ -603,24 +624,22 @@ void editSnippet()
     char* buffer = toCharArray(bufferWide);
     buffer = quickStrip(buffer, ' ');
 
-    if (strlen(buffer)==0) selectionToSnippet(true);
-    //if (strlen(buffer)==0)
-    //{
-    //    ::showMessageBox(TEXT("No Snippet Selected"));
-    //    delete [] buffer;
-    //    return;
-    //}
-    //
-    int scopeLength = ::strchr(buffer,'>') - buffer - 1;
-    int triggerTextLength = strlen(buffer)-scopeLength - 2;
-    char* tempTriggerText = new char [ triggerTextLength+1];
-    char* tempScope = new char[scopeLength+1];
-    
-    strncpy(tempScope,buffer+1,scopeLength);
-    tempScope[scopeLength] = '\0';
-    strncpy(tempTriggerText,buffer+1+scopeLength+1,triggerTextLength);
-    tempTriggerText[triggerTextLength] = '\0';
-    
+    if (strlen(buffer)==0)
+    {
+        selectionToSnippet(true);
+        delete [] buffer;
+        delete [] bufferWide;
+        return;
+    }
+
+    char* tempScope = nullptr;
+    char* tempTriggerText = nullptr;
+    if (!parseScopeTrigger(buffer, tempScope, tempTriggerText))
+    {
+        delete [] buffer;
+        delete [] bufferWide;
+        return;
+    }
     delete [] buffer;
 
     sqlite3_stmt *stmt;
@@ -710,20 +729,18 @@ void deleteSnippet()
     char* buffer = toCharArray(bufferWide);
     buffer = quickStrip(buffer, ' ');
 
-    int scopeLength = ::strchr(buffer,'>') - buffer - 1;
-    int triggerTextLength = strlen(buffer)-scopeLength - 2;
-    char* tempTriggerText = new char [ triggerTextLength+1];
-    char* tempScope = new char[scopeLength+1];
-    
-    strncpy(tempScope,buffer+1,scopeLength);
-    tempScope[scopeLength] = '\0';
-    strncpy(tempTriggerText,buffer+1+scopeLength+1,triggerTextLength);
-    tempTriggerText[triggerTextLength] = '\0';
-    
+    char* tempScope = nullptr;
+    char* tempTriggerText = nullptr;
+    if (!parseScopeTrigger(buffer, tempScope, tempTriggerText))
+    {
+        delete [] buffer;
+        delete [] bufferWide;
+        return;
+    }
     delete [] buffer;
 
     sqlite3_stmt *stmt;
-    
+
     if (SQLITE_OK == sqlite3_prepare_v2(g_db, "DELETE FROM snippets WHERE tagType LIKE ? AND tag LIKE ?", -1, &stmt, NULL))
     {
         sqlite3_bind_text(stmt, 1, tempScope, -1, SQLITE_STATIC);
@@ -2982,23 +2999,21 @@ void showPreview(bool top,bool insertion)
         char* buffer = toCharArray(bufferWide);
         buffer = quickStrip(buffer, ' ');
 
-        int scopeLength = ::strchr(buffer,'>') - buffer - 1;
-        int triggerTextLength = strlen(buffer)-scopeLength - 2;
-        char* tempTriggerText = new char [ triggerTextLength+1];
-        char* tempScope = new char[scopeLength+1];
-        
-        strncpy(tempScope,buffer+1,scopeLength);
-        tempScope[scopeLength] = '\0';
-        strncpy(tempTriggerText,buffer+1+scopeLength+1,triggerTextLength);
-        tempTriggerText[triggerTextLength] = '\0';
-
-        if (!top)
+        char* tempScope = nullptr;
+        char* tempTriggerText = nullptr;
+        if (!parseScopeTrigger(buffer, tempScope, tempTriggerText))
         {
-            TCHAR* tempTriggerTextWide = toWideChar(tempTriggerText);
-            insertionDlg.setDlgText(IDC_INSERTION_EDIT,tempTriggerTextWide);
-            delete [] tempTriggerTextWide;
+            delete [] buffer;
         }
-        delete [] buffer;
+        else
+        {
+            if (!top)
+            {
+                TCHAR* tempTriggerTextWide = toWideChar(tempTriggerText);
+                insertionDlg.setDlgText(IDC_INSERTION_EDIT,tempTriggerTextWide);
+                delete [] tempTriggerTextWide;
+            }
+            delete [] buffer;
 
         sqlite3_stmt *stmt;
         
@@ -3135,6 +3150,7 @@ void showPreview(bool top,bool insertion)
 
         delete [] tempTriggerText;
         delete [] tempScope;
+        }
     } else
     {
         if (insertion)

@@ -162,12 +162,17 @@ void DockingDlg::getSelectText(TCHAR* &buffer, int index)
 {
      
     HWND hwndList = GetDlgItem(_hSelf, IDC_SNIPPET_LIST);
-    if (index = -1) index = SendMessage(hwndList, LB_GETCURSEL, 0, 0);
-    if (index <= 0) index = 0;
-    int length = SendMessage(hwndList, LB_GETTEXTLEN, index, 0);
-    if (length >=  1)
+    if (index == -1) index = (int)SendMessage(hwndList, LB_GETCURSEL, 0, 0);
+    if (index == LB_ERR)
     {
-
+        buffer = new TCHAR[1];
+        buffer[0] = '\0';
+        return;
+    }
+    if (index < 0) index = 0;
+    int length = (int)SendMessage(hwndList, LB_GETTEXTLEN, index, 0);
+    if (length >= 1)
+    {
         buffer = new TCHAR[length+1];
         SendMessage(hwndList, LB_GETTEXT, index, (LPARAM)buffer);
     } else
