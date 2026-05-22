@@ -29,6 +29,7 @@
 
 #include "PluginDefinition.h"
 #include "SnippetDock.h"
+#include <exception>
 
 bool normalMode = true;
 int insertMode = 1;
@@ -581,12 +582,27 @@ INT_PTR CALLBACK DockingDlg::run_dlgProc(UINT message, WPARAM wParam, LPARAM lPa
 
                 case IDC_OPENEDITOR:
                 {
-                    if (selectMode)
+                    try
                     {
-                        editSnippet();
-                    } else
+                        if (selectMode)
+                        {
+                            editSnippet();
+                        } else
+                        {
+                            selectionToSnippet(true);
+                        }
+                    }
+                    catch (const std::exception& e)
                     {
-                        selectionToSnippet(true);
+                        ::OutputDebugStringA("[FingerText] IDC_OPENEDITOR std::exception: ");
+                        ::OutputDebugStringA(e.what());
+                        ::OutputDebugStringA("\n");
+                        ::MessageBoxA(NULL, e.what(), "FingerText: exception in edit", MB_OK | MB_ICONERROR);
+                    }
+                    catch (...)
+                    {
+                        ::OutputDebugStringA("[FingerText] IDC_OPENEDITOR unknown exception\n");
+                        ::MessageBoxA(NULL, "Unknown exception in editSnippet", "FingerText", MB_OK | MB_ICONERROR);
                     }
                     return true;
                 }
