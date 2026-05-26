@@ -37,6 +37,7 @@ extern WNDPROC	wndProcNpp;
 extern int nppLoaded;
 extern int sciFocus;
 extern bool g_onHotSpot;
+extern bool g_inEditSnippet;
 
 BOOL APIENTRY DllMain(HANDLE hModule, DWORD reasonForCall, LPVOID lpReserved)
 {
@@ -131,18 +132,34 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification *notifyCode)
         //    updateMode();
         //    break;
         case NPPN_BUFFERACTIVATED:
+            if (g_inEditSnippet)
+            {
+                ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: skipped (editSnippet re-entrance)\n");
+                break;
+            }
+            ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: before updateMode\n");
             g_onHotSpot = false;
             updateMode();
+            ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: after updateMode, before turnOffOptionMode\n");
             turnOffOptionMode();
+            ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: after turnOffOptionMode\n");
             //refreshAnnotation();
             // No break here because NPPN_BUFFERACTIVATED also trigger updateDockItems();
         case NPPN_LANGCHANGED:
-            
+
             //keyUpdate();
             //if (nppLoaded) updateDockItems();
-            if (nppLoaded)
+            if (nppLoaded && !g_inEditSnippet)
             {
-                if (!snippetHintUpdate()) updateDockItems(true,false,"%",true);
+                ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: before snippetHintUpdate\n");
+                bool hintOk = snippetHintUpdate();
+                ::OutputDebugStringA(hintOk ? "[FingerText] BUFFERACTIVATED: snippetHintUpdate returned true\n"
+                                            : "[FingerText] BUFFERACTIVATED: snippetHintUpdate returned false, calling updateDockItems\n");
+                if (!hintOk)
+                {
+                    updateDockItems(true,false,"%",true);
+                    ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: updateDockItems done\n");
+                }
             }
             //cleanOptionItem(); //This is not necessary........but the memory will keep a list of options used in last option dynamic hotspor call
             break;

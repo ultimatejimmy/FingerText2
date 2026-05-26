@@ -107,6 +107,7 @@ bool g_rectSelection = false;
 bool g_freezeDock = false;
 bool g_enable = true;
 bool g_editorView;
+bool g_inEditSnippet = false;
 
 int g_editorLineCount;
 
@@ -617,6 +618,7 @@ void insertSnippet()
 void editSnippet()
 {
     ::OutputDebugStringA("[FingerText] editSnippet: enter\n");
+    g_inEditSnippet = true;
     int topIndex = -1;
     if (g_editorView) topIndex = snippetDock.getTopIndex();
 
@@ -633,6 +635,7 @@ void editSnippet()
         selectionToSnippet(true);
         delete [] buffer;
         delete [] bufferWide;
+        g_inEditSnippet = false;
         return;
     }
 
@@ -643,6 +646,7 @@ void editSnippet()
         ::OutputDebugStringA("[FingerText] editSnippet: parseScopeTrigger failed\n");
         delete [] buffer;
         delete [] bufferWide;
+        g_inEditSnippet = false;
         return;
     }
     ::OutputDebugStringA("[FingerText] editSnippet: parsed OK scope='");
@@ -741,6 +745,8 @@ void editSnippet()
 
 
     delete [] bufferWide;
+    g_inEditSnippet = false;
+    ::OutputDebugStringA("[FingerText] editSnippet: exit\n");
 }
 
 void deleteSnippet()
