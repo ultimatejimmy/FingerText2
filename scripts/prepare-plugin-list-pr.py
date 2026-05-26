@@ -172,8 +172,10 @@ def insert_into_plugin_list(json_path, entry):
     plugins.sort(key=lambda p: p.get("display-name", "").lower())
     data[plugins_key] = plugins
 
+    # nppPluginList uses tab indentation. Using anything else reformats every
+    # line of the file and produces a massive, unreviewable diff.
     with open(json_path, "w", encoding="utf-8", newline="\n") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
+        json.dump(data, f, indent="\t", ensure_ascii=False)
         f.write("\n")
 
 
