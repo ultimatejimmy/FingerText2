@@ -43,7 +43,8 @@ $day        = [int]$parts[2]
 $revision   = if ($parts.Count -ge 4) { [int]$parts[3] } else { 0 }
 
 $versionNum    = "$year,$month,$day,$revision"
-$versionLinear = $year * 10000000 + $month * 100000 + $day * 1000 + $revision * 10 + ($isBeta ? 1 : 0)
+$betaBit       = if ($isBeta) { 1 } else { 0 }
+$versionLinear = $year * 10000000 + $month * 100000 + $day * 1000 + $revision * 10 + $betaBit
 $tagName       = "v$Version"
 
 # ── Guard: dirty working tree ─────────────────────────────────────────────────
