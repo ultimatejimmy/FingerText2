@@ -103,9 +103,8 @@ git tag -a $tagName -m "$tagName"
 
 Write-Host "Created commit and tag $tagName" -ForegroundColor Green
 
-# Push
-git push origin master
-git push origin $tagName
+# Push master and tag in a single connection (one passphrase prompt)
+git push origin master $tagName
 
 Write-Host "Pushed master and tag $tagName to origin" -ForegroundColor Green
 Write-Host ""
