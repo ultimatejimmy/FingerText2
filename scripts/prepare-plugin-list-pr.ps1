@@ -27,9 +27,25 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ── Fetch latest stable release via gh CLI ────────────────────────────────────
+# Resolve gh.exe. Newly-installed gh may not be on PATH for this session yet,
+# so fall back to the standard install location before giving up.
+$gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
+if (-not $gh) {
+    $candidates = @(
+        "$env:ProgramFiles\GitHub CLI\gh.exe",
+        "${env:ProgramFiles(x86)}\GitHub CLI\gh.exe",
+        "$env:LOCALAPPDATA\Programs\GitHub CLI\gh.exe"
+    )
+    $gh = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+}
+if (-not $gh) {
+    Write-Error "gh CLI not found. Install from https://cli.github.com and run 'gh auth login'."
+    exit 1
+}
+
+# Fetch latest stable release via gh CLI
 Write-Host "Fetching latest stable release from $Repo..."
-$releaseJson = gh release view --repo $Repo --json tagName,assets,isPrerelease 2>&1
+$releaseJson = & $gh release view --repo $Repo --json tagName,assets,isPrerelease 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Error "gh release view failed. Make sure you are authenticated: gh auth login"
     exit 1
