@@ -122,7 +122,7 @@ jobs:
             'release', 'create', $tag,
             '--repo', '${{ github.repository }}',
             '--draft',
-            '--title', "FingerText2 $tag",
+            '--title', $tag,
             '--notes', ''
           )
           if ($isBeta) { $ghArgs += '--prerelease' }
