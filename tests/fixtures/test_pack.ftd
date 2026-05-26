@@ -1,0 +1,11 @@
+!$[FingerTextData FingerTextData]@#
+<GLOBAL>testtrigger
+Test snippet description
+[>END<]
+Hello from FingerText2! $[![ name ]!]$[0[]0]
+!$[FingerTextData FingerTextData]@#
+<GLOBAL>testchain
+Chain test
+[>END<]
+Chain snippet body
+!$[FingerTextData FingerTextData]@#

@@ -1,0 +1,184 @@
+name: Test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [Win32, x64]
+
+    steps:
+      - name: Checkout (raw git)
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/${{ github.repository }}.git .
+          git fetch origin ${{ github.sha }}
+          git checkout ${{ github.sha }}
+
+      - name: Locate MSBuild via vswhere
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $msbuild = & $vswhere -latest -requires Microsoft.Component.MSBuild -find "MSBuild\**\Bin\MSBuild.exe" | Select-Object -First 1
+          if (-not $msbuild) { throw "MSBuild not found" }
+          Add-Content -Path $env:GITHUB_PATH -Value (Split-Path $msbuild)
+
+      - name: Build ${{ matrix.platform }} Release
+        shell: cmd
+        run: |
+          msbuild FingerText2.vcxproj ^
+            /m ^
+            /p:Configuration="Unicode Release" ^
+            /p:Platform="${{ matrix.platform }}" ^
+            /p:PlatformToolset=v143 ^
+            /p:WindowsTargetPlatformVersion=10.0
+
+      - name: Upload DLL
+        uses: actions/upload-artifact@v4
+        with:
+          name: dll-${{ matrix.platform }}
+          path: |
+            Unicode Release\FingerText2.dll
+            x64\Unicode Release\FingerText2.dll
+          if-no-files-found: error
+
+  smoke:
+    needs: build
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        platform: [Win32, x64]
+        include:
+          - platform: Win32
+            dll_path: "Unicode Release\\FingerText2.dll"
+          - platform: x64
+            dll_path: "x64\\Unicode Release\\FingerText2.dll"
+
+    steps:
+      - name: Checkout (raw git)
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/${{ github.repository }}.git .
+          git fetch origin ${{ github.sha }}
+          git checkout ${{ github.sha }}
+
+      - name: Download DLL
+        uses: actions/download-artifact@v4
+        with:
+          name: dll-${{ matrix.platform }}
+          path: built
+
+      - name: Download Notepad++ portable
+        shell: pwsh
+        run: |
+          # Pin to a known-good NPP portable release
+          $nppVer = "8.6.7"
+          $arch   = if ("${{ matrix.platform }}" -eq "x64") { "x64" } else { "x86" }
+          $url    = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v${nppVer}/npp.${nppVer}.portable.${arch}.zip"
+          Invoke-WebRequest -Uri $url -OutFile npp_portable.zip
+          Expand-Archive npp_portable.zip -DestinationPath npp_portable -Force
+          echo "NPP_EXE=$PWD\npp_portable\notepad++.exe" >> $env:GITHUB_ENV
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: pip install pywinauto --quiet
+
+      - name: Set test env vars
+        shell: pwsh
+        run: |
+          $dll = "built\${{ matrix.dll_path }}"
+          echo "FT2_DLL=$PWD\$dll" >> $env:GITHUB_ENV
+          echo "FT2_DB=$PWD\tests\fixtures\test_pack.ftd" >> $env:GITHUB_ENV
+
+      - name: Run smoke tests
+        shell: pwsh
+        run: python tests/smoke.py
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-screenshots-${{ matrix.platform }}
+          path: ${{ runner.temp }}\\ft2_*.png
+          if-no-files-found: ignore
+
+  functional:
+    needs: build
+    # Only run on tag pushes (gates the release)
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        platform: [Win32, x64]
+        include:
+          - platform: Win32
+            dll_path: "Unicode Release\\FingerText2.dll"
+          - platform: x64
+            dll_path: "x64\\Unicode Release\\FingerText2.dll"
+
+    steps:
+      - name: Checkout (raw git)
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/${{ github.repository }}.git .
+          git fetch origin ${{ github.sha }}
+          git checkout ${{ github.sha }}
+
+      - name: Download DLL
+        uses: actions/download-artifact@v4
+        with:
+          name: dll-${{ matrix.platform }}
+          path: built
+
+      - name: Download Notepad++ portable
+        shell: pwsh
+        run: |
+          $nppVer = "8.6.7"
+          $arch   = if ("${{ matrix.platform }}" -eq "x64") { "x64" } else { "x86" }
+          $url    = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v${nppVer}/npp.${nppVer}.portable.${arch}.zip"
+          Invoke-WebRequest -Uri $url -OutFile npp_portable.zip
+          Expand-Archive npp_portable.zip -DestinationPath npp_portable -Force
+          echo "NPP_EXE=$PWD\npp_portable\notepad++.exe" >> $env:GITHUB_ENV
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: pip install pywinauto --quiet
+
+      - name: Prepare seed database
+        shell: pwsh
+        run: |
+          # Create a minimal seed db3 for functional tests using the fixture ftd
+          # (The migration test just needs a file with the right name present)
+          $dbDir = "$env:APPDATA\Notepad++\plugins\config\FingerText2"
+          New-Item -ItemType Directory -Path $dbDir -Force | Out-Null
+
+      - name: Set test env vars
+        shell: pwsh
+        run: |
+          $dll = "built\${{ matrix.dll_path }}"
+          echo "FT2_DLL=$PWD\$dll"         >> $env:GITHUB_ENV
+          echo "FT2_FTD=$PWD\tests\fixtures\test_pack.ftd" >> $env:GITHUB_ENV
+          # FT2_DB points to a pre-created minimal sqlite file we generate below
+          $dbSrc = "$env:APPDATA\Notepad++\plugins\config\FingerText2\FingerText2.db3"
+          echo "FT2_DB=$dbSrc"             >> $env:GITHUB_ENV
+
+      - name: Run functional tests
+        shell: pwsh
+        run: python tests/functional.py
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: functional-screenshots-${{ matrix.platform }}
+          path: ${{ runner.temp }}\\ft2_func_*.png
+          if-no-files-found: ignore
