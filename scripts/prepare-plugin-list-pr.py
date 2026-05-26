@@ -160,8 +160,13 @@ def check_ft2_validation(output):
 
 def insert_into_plugin_list(json_path, entry):
     """Insert/replace entry in pl.x{86,64}.json, keeping alphabetical order."""
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
+    # Read raw bytes first so we can detect the line ending convention.
+    # pl.x86.json uses LF, pl.x64.json uses CRLF; mixing them up produces
+    # a massive diff where every line appears changed.
+    raw_bytes = open(json_path, "rb").read()
+    newline = "\r\n" if b"\r\n" in raw_bytes else "\n"
+
+    data = json.loads(raw_bytes.decode("utf-8"))
 
     plugins_key = "npp-plugins"
     if plugins_key not in data:
@@ -172,11 +177,12 @@ def insert_into_plugin_list(json_path, entry):
     plugins.sort(key=lambda p: p.get("display-name", "").lower())
     data[plugins_key] = plugins
 
-    # nppPluginList uses tab indentation. Using anything else reformats every
-    # line of the file and produces a massive, unreviewable diff.
-    with open(json_path, "w", encoding="utf-8", newline="\n") as f:
+    # nppPluginList uses tab indentation. Use the same line ending as the
+    # original file so git sees only the actual entry change.
+    with open(json_path, "w", encoding="utf-8", newline=newline) as f:
         json.dump(data, f, indent="\t", ensure_ascii=False)
-        f.write("\n")
+        if raw_bytes.endswith(b"\n"):
+            f.write(newline)
 
 
 def parse_args():
