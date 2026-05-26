@@ -174,11 +174,11 @@ git push origin $branchName
 
 Write-Host ""
 Write-Host "Branch '$branchName' pushed to https://github.com/$forkRepo"
-Write-Host "Open a PR at: https://github.com/notepad-plus-plus/nppPluginList/compare/master...$ForkOwner:${branchName}"
+Write-Host "Open a PR at: https://github.com/notepad-plus-plus/nppPluginList/compare/master...${ForkOwner}:${branchName}"
 Write-Host ""
 Write-Host "Suggested PR title: Add FingerText2 plugin"
 Write-Host "Suggested PR body:"
 Write-Host "  - Adds FingerText2 $version (32-bit and 64-bit)"
 Write-Host "  - Homepage: $homepage"
-Write-Host "  - Release: https://github.com/$Repo/releases/tag/v$version"
+Write-Host "  - Release: https://github.com/$Repo/releases/tag/$version"
 Write-Host "  - Automated tests pass (link to green workflow run)"
