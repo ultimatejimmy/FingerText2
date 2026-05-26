@@ -128,25 +128,45 @@ int searchPrev(char* searchText, bool regExp)
 
 unsigned int sciGetText(char **text, int start, int end)
 {
+    char dbgMsg[160];
+    ::wsprintfA(dbgMsg, "[FingerText] sciGetText: enter start=%d end=%d pSciMsg=%p pSciWndData=%p\n",
+                start, end, (void*)pSciMsg, (void*)pSciWndData);
+    ::OutputDebugStringA(dbgMsg);
+
     if (start == -1)
     {
-        start = SendScintilla(SCI_GETSELECTIONSTART, 0, 0);
-        end = SendScintilla(SCI_GETSELECTIONEND, 0, 0);
+        start = (int)SendScintilla(SCI_GETSELECTIONSTART, 0, 0);
+        end   = (int)SendScintilla(SCI_GETSELECTIONEND, 0, 0);
+        ::wsprintfA(dbgMsg, "[FingerText] sciGetText: resolved selection start=%d end=%d\n", start, end);
+        ::OutputDebugStringA(dbgMsg);
     }
 
-    *text = (LPSTR)new char[end - start + 1];
+    int len = end - start;
+    if (len < 0) len = 0;
+    *text = (LPSTR)new char[len + 1];
+    (*text)[0] = '\0';
+    ::OutputDebugStringA("[FingerText] sciGetText: allocated buffer\n");
 
     if (end > start)
     {
-
-        TextRange tr;
-        tr.chrg.cpMin = start;
-        tr.chrg.cpMax = end;
-        tr.lpstrText  = *text;
-        return (int)SendScintilla(SCI_GETTEXTRANGE, 0, reinterpret_cast<LPARAM>(&tr));
+        // Modern Scintilla (NPP 8.x) treats SCI_GETTEXTRANGE on x64 as using
+        // pointer-sized Sci_Position fields. Use SCI_GETTEXTRANGEFULL (2039)
+        // with an intptr_t-based struct so the layout matches.
+        struct TextRangeFull {
+            intptr_t cpMin;
+            intptr_t cpMax;
+            char* lpstrText;
+        } tr;
+        tr.cpMin = start;
+        tr.cpMax = end;
+        tr.lpstrText = *text;
+        ::OutputDebugStringA("[FingerText] sciGetText: before SCI_GETTEXTRANGEFULL\n");
+        sptr_t rc = SendScintilla(2039 /*SCI_GETTEXTRANGEFULL*/, 0, reinterpret_cast<sptr_t>(&tr));
+        ::wsprintfA(dbgMsg, "[FingerText] sciGetText: SCI_GETTEXTRANGEFULL returned %p\n", (void*)rc);
+        ::OutputDebugStringA(dbgMsg);
+        return (unsigned int)rc;
     } else
     {
-        strcpy(*text,"");
         return 0;
     }
 }
