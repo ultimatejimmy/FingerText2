@@ -617,7 +617,6 @@ void insertSnippet()
 
 void editSnippet()
 {
-    ::OutputDebugStringA("[FingerText] editSnippet: enter\n");
     g_inEditSnippet = true;
     int topIndex = -1;
     if (g_editorView) topIndex = snippetDock.getTopIndex();
@@ -626,9 +625,6 @@ void editSnippet()
     snippetDock.getSelectText(bufferWide);
     char* buffer = toCharArray(bufferWide);
     buffer = quickStrip(buffer, ' ');
-    ::OutputDebugStringA("[FingerText] editSnippet: got selection buffer='");
-    ::OutputDebugStringA(buffer ? buffer : "(null)");
-    ::OutputDebugStringA("'\n");
 
     if (strlen(buffer)==0)
     {
@@ -643,17 +639,11 @@ void editSnippet()
     char* tempTriggerText = nullptr;
     if (!parseScopeTrigger(buffer, tempScope, tempTriggerText))
     {
-        ::OutputDebugStringA("[FingerText] editSnippet: parseScopeTrigger failed\n");
         delete [] buffer;
         delete [] bufferWide;
         g_inEditSnippet = false;
         return;
     }
-    ::OutputDebugStringA("[FingerText] editSnippet: parsed OK scope='");
-    ::OutputDebugStringA(tempScope);
-    ::OutputDebugStringA("' trigger='");
-    ::OutputDebugStringA(tempTriggerText);
-    ::OutputDebugStringA("'\n");
     delete [] buffer;
 
     sqlite3_stmt *stmt;
@@ -667,14 +657,9 @@ void editSnippet()
 		if(SQLITE_ROW == sqlite3_step(stmt))  // SQLITE_ROW 100 sqlite3_step() has another row ready
 		{
 			const char* snippetText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)); // The 0 here means we only take the first column returned. And it is the snippet as there is only one column
-            ::OutputDebugStringA("[FingerText] editSnippet: SQLITE_ROW, snippetText=");
-            ::OutputDebugStringA(snippetText ? snippetText : "(null)");
-            ::OutputDebugStringA("\n");
 
             // After loading the content, switch to the editor buffer and promput for saving if needed
-            ::OutputDebugStringA("[FingerText] editSnippet: calling openTab\n");
             openTab(g_ftbPath);
-            ::OutputDebugStringA("[FingerText] editSnippet: openTab done\n");
 
             std::string allScope = "";
             //if (!::SendMessage(nppData._nppHandle, NPPM_SWITCHTOFILE, 0, (LPARAM)g_ftbPath))
@@ -682,9 +667,7 @@ void editSnippet()
             //    ::SendMessage(nppData._nppHandle, NPPM_DOOPEN, 0, (LPARAM)g_ftbPath);
             //}
             //HWND curScintilla = getCurrentScintilla();
-            ::OutputDebugStringA("[FingerText] editSnippet: before promptSaveSnippet\n");
             promptSaveSnippet(TEXT("Do you wish to save the current snippet before editing another one?"));
-            ::OutputDebugStringA("[FingerText] editSnippet: promptSaveSnippet done\n");
 
             ::SendScintilla(SCI_CONVERTEOLS,SC_EOL_LF, 0);
 
@@ -702,9 +685,6 @@ void editSnippet()
                 }
                 sqlite3_finalize(stmt2);
             }
-            ::OutputDebugStringA("[FingerText] editSnippet: stmt2 done, allScope='");
-            ::OutputDebugStringA(allScope.c_str());
-            ::OutputDebugStringA("'\n");
 
             ::SendScintilla(SCI_CLEARALL,0,0);
             //::SendMessage(nppData._nppHandle, NPPM_MENUCOMMAND, 0, IDM_FILE_NEW);
@@ -720,9 +700,7 @@ void editSnippet()
             }
 
             g_editorView = true;
-            ::OutputDebugStringA("[FingerText] editSnippet: calling refreshAnnotation\n");
             refreshAnnotation();
-            ::OutputDebugStringA("[FingerText] editSnippet: refreshAnnotation done\n");
 		}
 	}
     
@@ -746,7 +724,6 @@ void editSnippet()
 
     delete [] bufferWide;
     g_inEditSnippet = false;
-    ::OutputDebugStringA("[FingerText] editSnippet: exit\n");
 }
 
 void deleteSnippet()

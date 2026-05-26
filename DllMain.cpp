@@ -118,13 +118,6 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification *notifyCode)
 {
     try
     {
-        unsigned int code = notifyCode->nmhdr.code;
-        if (code == NPPN_BUFFERACTIVATED || code == NPPN_FILESAVED || code == NPPN_READY || code == NPPN_SHUTDOWN)
-        {
-            char msg[128];
-            ::wsprintfA(msg, "[FingerText] beNotified: code=0x%X\n", code);
-            ::OutputDebugStringA(msg);
-        }
     switch(notifyCode->nmhdr.code)
     {
         //case NPPN_FILEOPENED:
@@ -132,17 +125,10 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification *notifyCode)
         //    updateMode();
         //    break;
         case NPPN_BUFFERACTIVATED:
-            if (g_inEditSnippet)
-            {
-                ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: skipped (editSnippet re-entrance)\n");
-                break;
-            }
-            ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: before updateMode\n");
+            if (g_inEditSnippet) break;
             g_onHotSpot = false;
             updateMode();
-            ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: after updateMode, before turnOffOptionMode\n");
             turnOffOptionMode();
-            ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: after turnOffOptionMode\n");
             //refreshAnnotation();
             // No break here because NPPN_BUFFERACTIVATED also trigger updateDockItems();
         case NPPN_LANGCHANGED:
@@ -151,15 +137,7 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification *notifyCode)
             //if (nppLoaded) updateDockItems();
             if (nppLoaded && !g_inEditSnippet)
             {
-                ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: before snippetHintUpdate\n");
-                bool hintOk = snippetHintUpdate();
-                ::OutputDebugStringA(hintOk ? "[FingerText] BUFFERACTIVATED: snippetHintUpdate returned true\n"
-                                            : "[FingerText] BUFFERACTIVATED: snippetHintUpdate returned false, calling updateDockItems\n");
-                if (!hintOk)
-                {
-                    updateDockItems(true,false,"%",true);
-                    ::OutputDebugStringA("[FingerText] BUFFERACTIVATED: updateDockItems done\n");
-                }
+                if (!snippetHintUpdate()) updateDockItems(true,false,"%",true);
             }
             //cleanOptionItem(); //This is not necessary........but the memory will keep a list of options used in last option dynamic hotspor call
             break;

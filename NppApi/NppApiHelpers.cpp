@@ -184,30 +184,10 @@ void closeTab(TCHAR* path)
 
 void openTab(TCHAR* path)
 {
-    ::OutputDebugStringA("[FingerText] openTab: enter, path=");
-    if (path != NULL)
+    if (!::SendMessage(nppData._nppHandle, NPPM_SWITCHTOFILE, 0, (LPARAM)path))
     {
-        char narrowPath[MAX_PATH * 2] = {0};
-        ::WideCharToMultiByte(CP_UTF8, 0, path, -1, narrowPath, sizeof(narrowPath) - 1, NULL, NULL);
-        ::OutputDebugStringA(narrowPath);
-    }
-    else
-    {
-        ::OutputDebugStringA("(null)");
-    }
-    ::OutputDebugStringA("\n");
-
-    ::OutputDebugStringA("[FingerText] openTab: before NPPM_SWITCHTOFILE\n");
-    LRESULT switched = ::SendMessage(nppData._nppHandle, NPPM_SWITCHTOFILE, 0, (LPARAM)path);
-    ::OutputDebugStringA(switched ? "[FingerText] openTab: NPPM_SWITCHTOFILE returned non-zero\n"
-                                  : "[FingerText] openTab: NPPM_SWITCHTOFILE returned zero\n");
-    if (!switched)
-    {
-        ::OutputDebugStringA("[FingerText] openTab: before NPPM_DOOPEN\n");
         ::SendMessage(nppData._nppHandle, NPPM_DOOPEN, 0, (LPARAM)path);
-        ::OutputDebugStringA("[FingerText] openTab: after NPPM_DOOPEN\n");
     }
-    ::OutputDebugStringA("[FingerText] openTab: exit\n");
 }
 
 void emptyFile(TCHAR* fileName)
