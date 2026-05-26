@@ -226,6 +226,15 @@ def main():
     print("Inserting x64 entry...")
     insert_into_plugin_list(fork_dir / "src" / "pl.x64.json", entry64)
 
+    # Install validator dependencies. nppPluginList ships a requirements.txt;
+    # if it doesn't, fall back to installing jsonschema directly.
+    print("Installing validator dependencies...")
+    req_file = fork_dir / "requirements.txt"
+    if req_file.exists():
+        run([sys.executable, "-m", "pip", "install", "-r", str(req_file), "--quiet"])
+    else:
+        run([sys.executable, "-m", "pip", "install", "jsonschema", "--quiet"])
+
     print("Running validator.py...")
     validator_result = subprocess.run([sys.executable, "validator.py"], cwd=fork_dir)
     if validator_result.returncode != 0:
