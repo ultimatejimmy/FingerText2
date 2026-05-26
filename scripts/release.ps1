@@ -61,9 +61,11 @@ if ($existingTag) {
     exit 1
 }
 $remoteTag = git ls-remote --tags origin $tagName 2>$null
-if ($remoteTag) {
+if ($LASTEXITCODE -eq 0 -and $remoteTag) {
     Write-Error "Tag $tagName already exists on remote. Use a different version."
     exit 1
+} elseif ($LASTEXITCODE -ne 0) {
+    Write-Host "  (Could not reach remote to check for duplicate tag — will let git push catch it.)" -ForegroundColor DarkYellow
 }
 
 # ── Print plan ────────────────────────────────────────────────────────────────
