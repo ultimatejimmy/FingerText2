@@ -130,20 +130,25 @@ try:
     ft2_menu = npp_win.child_window(title="FingerText2", control_type="MenuItem")
     ft2_menu.click_input()
     time.sleep(0.5)
-    about_item = npp_win.child_window(title_re=".*About.*", control_type="MenuItem")
+    # Use exact title to avoid matching "About Notepad++..." in the Help menu
+    about_item = npp_win.child_window(title="About", control_type="MenuItem")
     about_item.click_input()
-    time.sleep(1)
+    time.sleep(1.5)
 
-    about_dlg = app.window(title_re=".*FingerText2.*")
+    # About is a MessageBox — title is PLUGIN_NAME ("FingerText2")
+    about_dlg = app.window(title="FingerText2", control_type="Dialog")
+    if not about_dlg.exists(timeout=5):
+        # Fallback: any dialog that appeared
+        about_dlg = app.window(title_re="FingerText2", found_index=0)
     about_dlg.wait("visible", timeout=5)
-    dlg_text = about_dlg.window_text()
-    # The text may be in child controls
-    all_text = " ".join(c.window_text() for c in about_dlg.children())
 
-    if "FingerText2" not in all_text and "FingerText2" not in dlg_text:
-        fail("About dialog does not mention FingerText2", "about_no_name")
-    if "Jimmy Pautz" not in all_text and "Jimmy Pautz" not in dlg_text:
-        fail("About dialog does not mention Jimmy Pautz", "about_no_author")
+    # Collect all text from the dialog and its children
+    all_text = about_dlg.window_text()
+    for c in about_dlg.children():
+        all_text += " " + c.window_text()
+
+    if "Jimmy Pautz" not in all_text:
+        fail(f"About dialog does not mention Jimmy Pautz. Text: {all_text[:300]}", "about_no_author")
 
     # Dismiss
     about_dlg.type_keys("{ENTER}")
