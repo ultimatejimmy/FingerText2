@@ -314,7 +314,9 @@ def main():
 
     run(["git", "add", "src/pl.x86.json", "src/pl.x64.json"], cwd=fork_dir)
     run(["git", "commit", "-m", f"Add FingerText2 {version}"], cwd=fork_dir)
-    run(["git", "push", "origin", branch_name], cwd=fork_dir)
+    # Force-with-lease: the branch on the fork is owned by us and may have
+    # earlier (now-obsolete) commits from a previous script run.
+    run(["git", "push", "--force-with-lease", "origin", branch_name], cwd=fork_dir)
 
     print()
     print(f"Branch '{branch_name}' pushed to https://github.com/{fork_repo}")
