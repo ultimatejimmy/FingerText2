@@ -115,6 +115,32 @@ def build_entry(version, hash_value, download_url, homepage):
     ])
 
 
+def check_ft2_validation(output):
+    """Inspect validator.py output and report FingerText2's status.
+
+    Returns:
+        "ok"      — FingerText2 listed, no error block follows it.
+        "error"   — an error block follows the FingerText2 line.
+        "missing" — FingerText2 not found in the output.
+    """
+    lines = output.splitlines()
+    for i, line in enumerate(lines):
+        # validator prints display-name on its own line, optionally followed
+        # by an annotation like "*** REQUIRES Npp >= ... ***"
+        stripped = line.strip()
+        if stripped == FOLDER_NAME or stripped.startswith(FOLDER_NAME + " "):
+            # Look at the next non-blank line. If it starts an error dict,
+            # this entry errored; otherwise it passed.
+            for nxt in lines[i + 1:]:
+                if not nxt.strip():
+                    continue
+                if nxt.lstrip().startswith("{'category': 'error'"):
+                    return "error"
+                return "ok"
+            return "ok"
+    return "missing"
+
+
 def insert_into_plugin_list(json_path, entry):
     """Insert/replace entry in pl.x{86,64}.json, keeping alphabetical order."""
     with open(json_path, "r", encoding="utf-8") as f:
@@ -235,11 +261,31 @@ def main():
     else:
         run([sys.executable, "-m", "pip", "install", "jsonschema", "--quiet"])
 
-    print("Running validator.py...")
-    validator_result = subprocess.run([sys.executable, "validator.py"], cwd=fork_dir)
-    if validator_result.returncode != 0:
-        die("validator.py failed. Fix the schema error before submitting the PR.")
-    print("  Validator passed.")
+    # validator.py walks the whole plugin list, downloading every plugin's
+    # ZIP to verify its SHA-256. Many entries fail with unrelated network
+    # errors (especially on corporate networks that do TLS interception).
+    # We only care whether FingerText2 itself validated.
+    for arch in ("x86", "x64"):
+        print(f"Running validator.py for {arch}...")
+        result = subprocess.run(
+            [sys.executable, "validator.py"],
+            cwd=fork_dir,
+            input=arch + "\n",
+            capture_output=True,
+            text=True,
+        )
+        output = result.stdout + result.stderr
+        ft2_status = check_ft2_validation(output)
+        if ft2_status == "missing":
+            die(f"FingerText2 entry not found in validator output for {arch}. "
+                "Did the insertion fail?")
+        if ft2_status == "error":
+            print(output)
+            die(f"FingerText2 validation failed for {arch}. See above.")
+        # Count other errors as informational
+        other_errors = output.count("{'category': 'error'")
+        print(f"  FingerText2 passed validation for {arch}. "
+              f"({other_errors} unrelated errors on other plugins ignored.)")
 
     run(["git", "add", "src/pl.x86.json", "src/pl.x64.json"], cwd=fork_dir)
     run(["git", "commit", "-m", f"Add FingerText2 {version}"], cwd=fork_dir)
