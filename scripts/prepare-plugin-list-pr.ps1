@@ -29,7 +29,9 @@ $ErrorActionPreference = 'Stop'
 
 # Resolve gh.exe. Newly-installed gh may not be on PATH for this session yet,
 # so fall back to the standard install location before giving up.
-$gh = (Get-Command gh -ErrorAction SilentlyContinue).Source
+$gh = $null
+$ghCmd = Get-Command gh -ErrorAction SilentlyContinue
+if ($ghCmd) { $gh = $ghCmd.Source }
 if (-not $gh) {
     $candidates = @(
         "$env:ProgramFiles\GitHub CLI\gh.exe",
