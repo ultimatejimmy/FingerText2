@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['[0-9]*']
 
 jobs:
   build:
@@ -92,6 +92,8 @@ jobs:
   release:
     needs: build
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Download 32bit ZIP
@@ -111,21 +113,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag     = '${{ github.ref_name }}'
-          $version = $tag -replace '^v', ''
-          $isBeta  = $version -match '-beta$'
+          $tag    = '${{ github.ref_name }}'
+          $isBeta = $tag -match '-beta$'
 
           $files = Get-ChildItem release-assets -Filter "*.zip" | Select-Object -ExpandProperty FullName
 
-          $args = @(
+          $ghArgs = @(
             'release', 'create', $tag,
             '--repo', '${{ github.repository }}',
             '--draft',
-            '--title', "FingerText2 $version",
+            '--title', "FingerText2 $tag",
             '--notes', ''
           )
-          if ($isBeta) { $args += '--prerelease' }
-          $args += $files
+          if ($isBeta) { $ghArgs += '--prerelease' }
+          $ghArgs += $files
 
-          gh @args
+          gh @ghArgs
           Write-Host "Draft release created for $tag"
