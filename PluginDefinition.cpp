@@ -770,20 +770,28 @@ void deleteSnippet()
 
 bool getLineChecked(char **buffer, int lineNumber, TCHAR* errorText)
 {
+    char dbgMsg[128];
+    ::wsprintfA(dbgMsg, "[FingerText] getLineChecked: enter lineNumber=%d\n", lineNumber);
+    ::OutputDebugStringA(dbgMsg);
+
     // TODO: and check for more error, say the triggertext has to be one word
     bool problemSnippet = false;
 
+    ::OutputDebugStringA("[FingerText] getLineChecked: SCI_GOTOLINE\n");
     ::SendScintilla(SCI_GOTOLINE,lineNumber,0);
 
+    ::OutputDebugStringA("[FingerText] getLineChecked: SCI_GETCURRENTPOS\n");
     int tagPosStart = ::SendScintilla(SCI_GETCURRENTPOS,0,0);
 
     int tagPosEnd;
-    
+
     if (lineNumber == 3)
     {
+        ::OutputDebugStringA("[FingerText] getLineChecked: SCI_GETLENGTH\n");
         tagPosEnd = ::SendScintilla(SCI_GETLENGTH,0,0);
     } else
     {
+        ::OutputDebugStringA("[FingerText] getLineChecked: SCI_GETLINEENDPOSITION\n");
         int tagPosLineEnd = ::SendScintilla(SCI_GETLINEENDPOSITION,lineNumber,0);
 
         //char* wordChar;
@@ -796,6 +804,7 @@ bool getLineChecked(char **buffer, int lineNumber, TCHAR* errorText)
         //    wordChar = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
         //}
 
+        ::OutputDebugStringA("[FingerText] getLineChecked: SCI_SETWORDCHARS\n");
         if (lineNumber==2)
         {
             ::SendScintilla(SCI_SETWORDCHARS, 0, (LPARAM)scopeWordChar);
@@ -803,7 +812,9 @@ bool getLineChecked(char **buffer, int lineNumber, TCHAR* errorText)
         {
             ::SendScintilla(SCI_SETWORDCHARS, 0, (LPARAM)triggertextWordChar);
         }
+        ::OutputDebugStringA("[FingerText] getLineChecked: SCI_WORDENDPOSITION\n");
         tagPosEnd = ::SendScintilla(SCI_WORDENDPOSITION,tagPosStart,0);
+        ::OutputDebugStringA("[FingerText] getLineChecked: SCI_SETCHARSDEFAULT\n");
         ::SendScintilla(SCI_SETCHARSDEFAULT, 0, 0);
         //::SendMessage(curScintilla,SCI_SEARCHANCHOR,0,0);
         //::SendMessage(curScintilla,SCI_SEARCHNEXT,0,(LPARAM)" ");
@@ -842,7 +853,10 @@ bool getLineChecked(char **buffer, int lineNumber, TCHAR* errorText)
     //*buffer = new char[tagPosEnd-tagPosStart + 1];
     //::SendScintilla(SCI_GETSELTEXT, 0, reinterpret_cast<LPARAM>(*buffer));
 
+    ::wsprintfA(dbgMsg, "[FingerText] getLineChecked: about to sciGetText start=%d end=%d\n", tagPosStart, tagPosEnd);
+    ::OutputDebugStringA(dbgMsg);
     sciGetText(&*buffer,tagPosStart,tagPosEnd);
+    ::OutputDebugStringA("[FingerText] getLineChecked: sciGetText done\n");
 
     return problemSnippet;
 }
