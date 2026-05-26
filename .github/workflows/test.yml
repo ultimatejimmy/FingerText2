@@ -80,9 +80,9 @@ jobs:
         shell: pwsh
         run: |
           # Pin to a known-good NPP portable release
-          $nppVer = "8.6.7"
-          $arch   = if ("${{ matrix.platform }}" -eq "x64") { "x64" } else { "x86" }
-          $url    = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v${nppVer}/npp.${nppVer}.portable.${arch}.zip"
+          $nppVer  = "8.9.6.1"
+          $suffix  = if ("${{ matrix.platform }}" -eq "x64") { ".x64" } else { "" }
+          $url     = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v${nppVer}/npp.${nppVer}.portable${suffix}.zip"
           Invoke-WebRequest -Uri $url -OutFile npp_portable.zip
           Expand-Archive npp_portable.zip -DestinationPath npp_portable -Force
           echo "NPP_EXE=$PWD\npp_portable\notepad++.exe" >> $env:GITHUB_ENV
@@ -141,9 +141,9 @@ jobs:
       - name: Download Notepad++ portable
         shell: pwsh
         run: |
-          $nppVer = "8.6.7"
-          $arch   = if ("${{ matrix.platform }}" -eq "x64") { "x64" } else { "x86" }
-          $url    = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v${nppVer}/npp.${nppVer}.portable.${arch}.zip"
+          $nppVer  = "8.9.6.1"
+          $suffix  = if ("${{ matrix.platform }}" -eq "x64") { ".x64" } else { "" }
+          $url     = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v${nppVer}/npp.${nppVer}.portable${suffix}.zip"
           Invoke-WebRequest -Uri $url -OutFile npp_portable.zip
           Expand-Archive npp_portable.zip -DestinationPath npp_portable -Force
           echo "NPP_EXE=$PWD\npp_portable\notepad++.exe" >> $env:GITHUB_ENV
