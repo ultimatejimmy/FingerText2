@@ -193,6 +193,8 @@ def parse_args():
                    help=f"Owner of the nppPluginList fork (default: {DEFAULT_FORK_OWNER})")
     p.add_argument("--repo", default=DEFAULT_REPO,
                    help=f"Plugin repo slug owner/name (default: {DEFAULT_REPO})")
+    p.add_argument("--skip-validate", action="store_true",
+                   help="Skip running validator.py (use when entry already validated).")
     return p.parse_args()
 
 
@@ -277,40 +279,42 @@ def main():
     print("Inserting x64 entry...")
     insert_into_plugin_list(fork_dir / "src" / "pl.x64.json", entry64)
 
-    # Install validator dependencies. nppPluginList ships a requirements.txt;
-    # if it doesn't, fall back to installing jsonschema directly.
-    print("Installing validator dependencies...")
-    req_file = fork_dir / "requirements.txt"
-    if req_file.exists():
-        run([sys.executable, "-m", "pip", "install", "-r", str(req_file), "--quiet"])
+    if args.skip_validate:
+        print("Skipping validator (--skip-validate).")
     else:
-        run([sys.executable, "-m", "pip", "install", "jsonschema", "--quiet"])
+        # Install validator dependencies. nppPluginList ships a requirements.txt;
+        # if it doesn't, fall back to installing jsonschema directly.
+        print("Installing validator dependencies...")
+        req_file = fork_dir / "requirements.txt"
+        if req_file.exists():
+            run([sys.executable, "-m", "pip", "install", "-r", str(req_file), "--quiet"])
+        else:
+            run([sys.executable, "-m", "pip", "install", "jsonschema", "--quiet"])
 
-    # validator.py walks the whole plugin list, downloading every plugin's
-    # ZIP to verify its SHA-256. Many entries fail with unrelated network
-    # errors (especially on corporate networks that do TLS interception).
-    # We only care whether FingerText2 itself validated.
-    for arch in ("x86", "x64"):
-        print(f"Running validator.py for {arch}...")
-        result = subprocess.run(
-            [sys.executable, "validator.py"],
-            cwd=fork_dir,
-            input=arch + "\n",
-            capture_output=True,
-            text=True,
-        )
-        output = result.stdout + result.stderr
-        ft2_status = check_ft2_validation(output)
-        if ft2_status == "missing":
-            die(f"FingerText2 entry not found in validator output for {arch}. "
-                "Did the insertion fail?")
-        if ft2_status == "error":
-            print(output)
-            die(f"FingerText2 validation failed for {arch}. See above.")
-        # Count other errors as informational
-        other_errors = output.count("{'category': 'error'")
-        print(f"  FingerText2 passed validation for {arch}. "
-              f"({other_errors} unrelated errors on other plugins ignored.)")
+        # validator.py walks the whole plugin list, downloading every plugin's
+        # ZIP to verify its SHA-256. Many entries fail with unrelated network
+        # errors (especially on corporate networks that do TLS interception).
+        # We only care whether FingerText2 itself validated.
+        for arch in ("x86", "x64"):
+            print(f"Running validator.py for {arch}...")
+            result = subprocess.run(
+                [sys.executable, "validator.py"],
+                cwd=fork_dir,
+                input=arch + "\n",
+                capture_output=True,
+                text=True,
+            )
+            output = result.stdout + result.stderr
+            ft2_status = check_ft2_validation(output)
+            if ft2_status == "missing":
+                die(f"FingerText2 entry not found in validator output for {arch}. "
+                    "Did the insertion fail?")
+            if ft2_status == "error":
+                print(output)
+                die(f"FingerText2 validation failed for {arch}. See above.")
+            other_errors = output.count("{'category': 'error'")
+            print(f"  FingerText2 passed validation for {arch}. "
+                  f"({other_errors} unrelated errors on other plugins ignored.)")
 
     run(["git", "add", "src/pl.x86.json", "src/pl.x64.json"], cwd=fork_dir)
     run(["git", "commit", "-m", f"Add FingerText2 {version}"], cwd=fork_dir)
