@@ -87,6 +87,23 @@ def gh_release_view(gh, repo):
     return json.loads(out)
 
 
+def latest_successful_test_run_url(gh, repo):
+    """Return the HTML URL of the most recent successful Test workflow run on master."""
+    result = subprocess.run(
+        [gh, "run", "list", "--repo", repo, "--workflow", "Test",
+         "--branch", "master", "--status", "success", "--limit", "1",
+         "--json", "url"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        return None
+    try:
+        runs = json.loads(result.stdout)
+        return runs[0]["url"] if runs else None
+    except (json.JSONDecodeError, KeyError, IndexError):
+        return None
+
+
 def download(url, dest):
     print(f"Downloading {os.path.basename(dest)}...")
     with urllib.request.urlopen(url) as response, open(dest, "wb") as f:
@@ -296,12 +313,17 @@ def main():
     print(f"Open a PR at: https://github.com/notepad-plus-plus/nppPluginList/"
           f"compare/master...{args.fork_owner}:{branch_name}")
     print()
+    test_run_url = latest_successful_test_run_url(gh, args.repo)
+    test_line = (f"  - Automated tests pass: {test_run_url}"
+                 if test_run_url
+                 else "  - Automated tests pass (paste a green workflow run URL here)")
+
     print("Suggested PR title: Add FingerText2 plugin")
     print("Suggested PR body:")
     print(f"  - Adds FingerText2 {version} (32-bit and 64-bit)")
     print(f"  - Homepage: {homepage}")
     print(f"  - Release: https://github.com/{args.repo}/releases/tag/{version}")
-    print(f"  - Automated tests pass (link to green workflow run)")
+    print(test_line)
 
 
 if __name__ == "__main__":
