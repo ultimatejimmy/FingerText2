@@ -48,7 +48,7 @@ $versionLinear = $year * 10000000 + $month * 100000 + $day * 1000 + $revision * 
 $tagName       = "v$Version"
 
 # ── Guard: dirty working tree ─────────────────────────────────────────────────
-$dirty = git status --porcelain
+$dirty = git status --porcelain | Where-Object { $_ -notmatch '^\?\?' }
 if ($dirty) {
     Write-Error "Working tree is dirty. Commit or stash all changes before releasing.`n$dirty"
     exit 1
