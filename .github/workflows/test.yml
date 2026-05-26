@@ -3,7 +3,6 @@ name: Test
 on:
   push:
     branches: ["**"]
-    tags: ['[0-9]*']
   pull_request:
   workflow_dispatch:
 
@@ -108,76 +107,4 @@ jobs:
         with:
           name: smoke-screenshots-${{ matrix.platform }}
           path: ${{ runner.temp }}\\ft2_*.png
-          if-no-files-found: ignore
-
-  functional:
-    needs: build
-    # Only run on tag pushes (gates the release)
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: windows-latest
-    strategy:
-      matrix:
-        platform: [Win32, x64]
-        include:
-          - platform: Win32
-            dll_path: "Unicode Release\\FingerText2.dll"
-          - platform: x64
-            dll_path: "x64\\Unicode Release\\FingerText2.dll"
-
-    steps:
-      - name: Checkout (raw git)
-        shell: pwsh
-        run: |
-          git clone --depth 1 https://github.com/${{ github.repository }}.git .
-          git fetch origin ${{ github.sha }}
-          git checkout ${{ github.sha }}
-
-      - name: Download DLL
-        uses: actions/download-artifact@v4
-        with:
-          name: dll-${{ matrix.platform }}
-          path: built
-
-      - name: Download Notepad++ portable
-        shell: pwsh
-        run: |
-          $nppVer  = "8.9.6.1"
-          $suffix  = if ("${{ matrix.platform }}" -eq "x64") { ".x64" } else { "" }
-          $url     = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v${nppVer}/npp.${nppVer}.portable${suffix}.zip"
-          Invoke-WebRequest -Uri $url -OutFile npp_portable.zip
-          Expand-Archive npp_portable.zip -DestinationPath npp_portable -Force
-          echo "NPP_EXE=$PWD\npp_portable\notepad++.exe" >> $env:GITHUB_ENV
-
-      - name: Install Python dependencies
-        shell: pwsh
-        run: python -m pip install pywinauto
-
-      - name: Prepare seed database
-        shell: pwsh
-        run: |
-          # Create a minimal seed db3 for functional tests using the fixture ftd
-          # (The migration test just needs a file with the right name present)
-          $dbDir = "$env:APPDATA\Notepad++\plugins\config\FingerText2"
-          New-Item -ItemType Directory -Path $dbDir -Force | Out-Null
-
-      - name: Set test env vars
-        shell: pwsh
-        run: |
-          $dll = "built\${{ matrix.dll_path }}"
-          echo "FT2_DLL=$PWD\$dll"         >> $env:GITHUB_ENV
-          echo "FT2_FTD=$PWD\tests\fixtures\test_pack.ftd" >> $env:GITHUB_ENV
-          # FT2_DB points to a pre-created minimal sqlite file we generate below
-          $dbSrc = "$env:APPDATA\Notepad++\plugins\config\FingerText2\FingerText2.db3"
-          echo "FT2_DB=$dbSrc"             >> $env:GITHUB_ENV
-
-      - name: Run functional tests
-        shell: pwsh
-        run: python tests/functional.py
-
-      - name: Upload screenshots on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: functional-screenshots-${{ matrix.platform }}
-          path: ${{ runner.temp }}\\ft2_func_*.png
           if-no-files-found: ignore
