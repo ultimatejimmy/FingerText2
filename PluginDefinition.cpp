@@ -683,6 +683,7 @@ void editSnippet()
 			const char* snippetText = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0)); // The 0 here means we only take the first column returned. And it is the snippet as there is only one column
 
             // After loading the content, switch to the editor buffer and promput for saving if needed
+            g_selectionMonitor--;
             openTab(g_ftbPath);
 
             std::string allScope = "";
@@ -725,9 +726,10 @@ void editSnippet()
 
             g_editorView = true;
             refreshAnnotation();
+            g_selectionMonitor++;
 		}
 	}
-    
+
 	sqlite3_finalize(stmt);
     
     ::SendScintilla(SCI_SETSAVEPOINT,0,0);

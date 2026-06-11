@@ -154,7 +154,7 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification *notifyCode)
             break;
 
         case SCN_MODIFIED:
-            
+            if (g_inEditSnippet) break;
             // This can catch the to be inserted text, but it cannot catch tab as the text insert of tab is different in different situation
             //if ((nppLoaded) && (notifyCode->modificationType & (SC_MOD_BEFOREINSERT)))
             //{
@@ -180,6 +180,7 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification *notifyCode)
             }
             break;
         case SCN_UPDATEUI:
+            if (g_inEditSnippet) break;
             //g_onHotSpot = false;
             if (nppLoaded) selectionMonitor(notifyCode->updated);
             //if (notifyCode->updated & (SC_UPDATE_CONTENT))

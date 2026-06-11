@@ -108,3 +108,76 @@ jobs:
           name: smoke-screenshots-${{ matrix.platform }}
           path: ${{ runner.temp }}\\ft2_*.png
           if-no-files-found: ignore
+
+  functional:
+    needs: build
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64]
+        include:
+          - platform: x64
+            dll_path: "x64\\Unicode Release\\FingerText2.dll"
+
+    steps:
+      - name: Checkout (raw git)
+        shell: pwsh
+        run: |
+          git clone --depth 1 https://github.com/${{ github.repository }}.git .
+          git fetch origin ${{ github.sha }}
+          git checkout ${{ github.sha }}
+
+      - name: Download DLL
+        uses: actions/download-artifact@v4
+        with:
+          name: dll-${{ matrix.platform }}
+          path: built
+
+      - name: Download Notepad++ portable
+        shell: pwsh
+        run: |
+          $nppVer = "8.9.6.1"
+          $url    = "https://github.com/notepad-plus-plus/notepad-plus-plus/releases/download/v${nppVer}/npp.${nppVer}.portable.x64.zip"
+          Invoke-WebRequest -Uri $url -OutFile npp_portable.zip
+          Expand-Archive npp_portable.zip -DestinationPath npp_portable -Force
+          echo "NPP_EXE=$PWD\npp_portable\notepad++.exe" >> $env:GITHUB_ENV
+
+      - name: Enable WER crash dumps
+        shell: pwsh
+        run: |
+          reg add "HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps" /v DumpType /t REG_DWORD /d 2 /f
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: python -m pip install pywinauto pyautogui
+
+      - name: Set test env vars
+        shell: pwsh
+        run: |
+          $dll = "built\${{ matrix.dll_path }}"
+          echo "FT2_DLL=$PWD\$dll"                                   >> $env:GITHUB_ENV
+          echo "FT2_DB=$PWD\tests\fixtures\FingerText2_seed.db3"     >> $env:GITHUB_ENV
+          echo "FT2_FTD=$PWD\tests\fixtures\test_pack.ftd"           >> $env:GITHUB_ENV
+
+      - name: Run functional tests
+        shell: pwsh
+        run: python tests/functional.py
+
+      - name: Upload crash dumps on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crash-dumps-${{ matrix.platform }}
+          path: |
+            ${{ env.LOCALAPPDATA }}\CrashDumps\*.dmp
+            built\**\*.pdb
+          if-no-files-found: ignore
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: functional-screenshots-${{ matrix.platform }}
+          path: ${{ runner.temp }}\\ft2_*.png
+          if-no-files-found: ignore
