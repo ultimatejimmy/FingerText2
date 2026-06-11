@@ -18,6 +18,8 @@ Full usage docs, snippet syntax, scope rules, hotspot reference, and dynamic hot
 
 Run `build.bat` (requires VS 2022 Build Tools with the C++ workload installed), or push to GitHub to let the `build` workflow do it for both Win32 and x64.
 
+For the full build, test, version-bump, release, and nppPluginList-submission process, see [RELEASING.md](RELEASING.md).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

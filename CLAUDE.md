@@ -73,3 +73,11 @@ snippets must resolve conditionally based on their declared meta-tags:
 1. **Analyze Scope:** Before changing text insertion code, verify how it impacts backward compatibility with existing user `.ftd` template packages.
 2. **Verify Directives:** Always double-check structural alignment matching when writing code that shares buffers between 32-bit and 64-bit compiled targets.
 3. **Propose Incrementally:** Provide clear explanations of file changes across target UI components (`SnippetDock.cpp`), processing engines (`FingerTextEngine.cpp`), and Notepad++ hooks (`PluginDefinition.cpp`).
+
+---
+
+## Build & Release
+
+The full build/test/release process — local build, CI build verification, version bumping, cutting a release, and nppPluginList submission — is documented in `RELEASING.md`. Read it before building or releasing.
+
+> ⚠️ In headers (e.g. `NppApi/Scintilla.h`), use `sptr_t`/`uptr_t` for pointer-sized integers, **never `intptr_t`** — that header does not include `<stdint.h>`, so `intptr_t` is undefined there and breaks the build. `intptr_t` is only safe inside `.cpp` files. Without local Visual Studio, never claim a build works until the GitHub **Test** workflow is green.
