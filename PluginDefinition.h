@@ -156,6 +156,7 @@ void exportAndClearSnippets();
 bool exportSnippets(bool all = true, wchar_t* path = TEXT(""));
 void importSnippetsOnly();
 void importSnippets(wchar_t* path=TEXT(""));
+void deferImportSnippets();
 bool snippetHintUpdate();
 int promptSaveSnippet(TCHAR* message = NULL);
 

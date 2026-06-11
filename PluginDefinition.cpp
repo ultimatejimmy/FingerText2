@@ -4044,9 +4044,9 @@ void clearAllSnippets()
 bool exportSnippets(bool all, wchar_t* path)
 {
     ////TODO: Can actually add some informtiaon at the end of the exported snippets......can be useful information like version number or just describing the package
-    
+
     pc.configInt[LIVE_HINT_UPDATE]--;  // Temporary turn off live update as it disturb exporting
-    //
+    bool callerHadFreeze = g_freezeDock;
 
     //TODO: improve efficiency by ignoring these in the case of withPath
     bool success = false;
@@ -4138,7 +4138,7 @@ bool exportSnippets(bool all, wchar_t* path)
 
         if (!withPath) showMessageBox(exportCountText);
 
-        g_freezeDock = false;
+        g_freezeDock = callerHadFreeze;
         //::MessageBox(nppData._nppHandle, exportCountText, TEXT(PLUGIN_NAME), MB_OK);
     }
     //pc.configInt[SNIPPET_LIST_LENGTH] = GetPrivateProfileInt(TEXT(PLUGIN_NAME), TEXT("snippet_list_length"), 1000 , pc.iniPath); // TODO: This hard coding of DEFAULT_SNIPPET_LIST_LENGTH is temporary and can cause problem.
@@ -4169,11 +4169,27 @@ void importSnippetsOnly()
     }
 }
 
+// Post the import command to NPP's main message loop so it runs from the top
+// level, not from within the dock's WM_COMMAND handler. Calling importSnippets
+// synchronously from the dock button causes NPPN_BUFFERACTIVATED notifications
+// to re-enter the dock while WM_COMMAND is still on the stack.
+void deferImportSnippets()
+{
+    ::PostMessage(nppData._nppHandle, WM_COMMAND,
+                  MAKEWPARAM(funcItem[g_importSnippetsIndex]._cmdID, 0), 0);
+}
+
 
 //TODO: importsnippet and savesnippets need refactoring sooooo badly
 //TODO: Or it should be rewrite, import snippet should open the snippetediting.ftb, turn or annotation, and cut and paste the snippet on to that file and use the saveSnippet function
 void importSnippets(wchar_t* path)
 {
+    // Freeze the dock before any SendMessage calls so that NPPN_BUFFERACTIVATED
+    // notifications triggered by tab close/switch below don't re-enter the dock
+    // while it may already be on the call stack (e.g. button-click code path).
+    g_freezeDock = true;
+    pc.configInt[LIVE_HINT_UPDATE]--;
+
     //TODO: importing snippet will change the current directory, which is not desirable effect
     if (::SendMessage(nppData._nppHandle, NPPM_SWITCHTOFILE, 0, (LPARAM)g_ftbPath))
     {
@@ -4192,9 +4208,6 @@ void importSnippets(wchar_t* path)
 
     if (toDouble(g_snippetCount) != 0) backupAllSnippets();
 
-    g_freezeDock = true;
-    pc.configInt[LIVE_HINT_UPDATE]--;
-
     //TODO: improve efficiency by ignoring these in the case of withPath
     OPENFILENAME ofn;
     wchar_t fileName[MAX_PATH] = TEXT("");
@@ -4211,7 +4224,7 @@ void importSnippets(wchar_t* path)
     bool getSave = false;
     bool withPath = true;
     if (path == NULL || ::wcscmp(path,TEXT(""))==0) withPath = false;
-    if (!withPath) getSave = ::GetSaveFileName(&ofn);
+    if (!withPath) getSave = ::GetOpenFileName(&ofn);
 
     if ((getSave) || (withPath))
     {
@@ -4224,6 +4237,8 @@ void importSnippets(wchar_t* path)
         if (conflictKeepCopy == IDCANCEL)
         {
             showMessageBox(TEXT("Snippet importing aborted."));
+            pc.configInt[LIVE_HINT_UPDATE]++;
+            g_freezeDock = false;
             return;
         }
 

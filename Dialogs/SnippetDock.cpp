@@ -628,7 +628,7 @@ INT_PTR CALLBACK DockingDlg::run_dlgProc(UINT message, WPARAM wParam, LPARAM lPa
                 }
                 case IDC_IMPORTFILE:
                 {
-                    importSnippetsOnly();
+                    deferImportSnippets();
                     return true;
                 }
                 case IDC_EXPORT:
