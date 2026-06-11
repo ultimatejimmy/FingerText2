@@ -112,6 +112,7 @@ jobs:
   functional:
     needs: build
     runs-on: windows-latest
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:

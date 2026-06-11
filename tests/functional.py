@@ -121,10 +121,11 @@ try:
     time.sleep(0.4)
     dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
     dock_item.click_input()
-    time.sleep(1)
+    time.sleep(2)
 
     # Click the first item in the dock list
-    dock = app.window(title_re=".*FingerText2.*")
+    # The dock is embedded in NPP's window tree, search within win
+    dock = win.child_window(title_re=".*FingerText2.*")
     listbox = dock.child_window(control_type="List")
     if listbox.item_count() == 0:
         fail("Snippet dock list is empty after seeding", "empty_dock")
@@ -160,9 +161,9 @@ try:
     ft2 = win.child_window(title_re=".*FingerText2.*", control_type="MenuItem")
     ft2.click_input(); time.sleep(0.4)
     dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
-    dock_item.click_input(); time.sleep(1)
+    dock_item.click_input(); time.sleep(2)
 
-    dock = app.window(title_re=".*FingerText2.*")
+    dock = win.child_window(title_re=".*FingerText2.*")
 
     # Deselect everything by clicking blank area in the listbox
     listbox = dock.child_window(control_type="List")
