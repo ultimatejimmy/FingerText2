@@ -37,9 +37,12 @@ except ImportError:
 
 def screenshot(name: str):
     if HAS_PYAUTOGUI:
-        path = os.path.join(tempfile.gettempdir(), f"ft2_func_{name}.png")
-        pyautogui.screenshot(path)
-        print(f"  Screenshot: {path}")
+        try:
+            path = os.path.join(tempfile.gettempdir(), f"ft2_func_{name}.png")
+            pyautogui.screenshot(path)
+            print(f"  Screenshot: {path}")
+        except Exception:
+            pass  # pyscreeze/Pillow may be absent; screenshots are best-effort
 
 def fail(msg: str, label: str = "failure"):
     screenshot(label)
