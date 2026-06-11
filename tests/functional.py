@@ -119,7 +119,7 @@ try:
     ft2 = win.child_window(title_re=".*FingerText2.*", control_type="MenuItem")
     ft2.click_input()
     time.sleep(0.4)
-    dock_item = win.child_window(title_re=".*SnippetDock.*|.*Snippet.*Dock.*|.*Toggle.*", control_type="MenuItem")
+    dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
     dock_item.click_input()
     time.sleep(1)
 
@@ -159,7 +159,7 @@ try:
     plugins_menu.click_input(); time.sleep(0.4)
     ft2 = win.child_window(title_re=".*FingerText2.*", control_type="MenuItem")
     ft2.click_input(); time.sleep(0.4)
-    dock_item = win.child_window(title_re=".*SnippetDock.*|.*Toggle.*", control_type="MenuItem")
+    dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
     dock_item.click_input(); time.sleep(1)
 
     dock = app.window(title_re=".*FingerText2.*")
