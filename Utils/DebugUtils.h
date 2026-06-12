@@ -45,4 +45,8 @@ void alert(std::vector<std::string> input);
 void alert(std::vector<int> input);
 void alert(HWND input);
 void alert(double input);
+
+void debugLog(const char* msg);
+void debugLogf(const char* fmt, ...);
+
 #endif //DEBUGUTILS_H

@@ -165,6 +165,30 @@ jobs:
         shell: pwsh
         run: python tests/functional.py
 
+      - name: Symbolicate crash dumps on failure
+        if: failure()
+        shell: powershell
+        run: |
+          $dump = Get-ChildItem "$env:LOCALAPPDATA\CrashDumps\*.dmp" -ErrorAction SilentlyContinue | Select-Object -First 1
+          $pdb = Get-ChildItem "${{ github.workspace }}\built\**\*.pdb" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($dump -and $pdb) {
+            Write-Output "Found dump: $($dump.FullName)"
+            Write-Output "Found pdb: $($pdb.FullName)"
+            $cdb = "C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe"
+            if (Test-Path $cdb) {
+              Write-Output "Running cdb to symbolicate crash..."
+              & $cdb -z "$($dump.FullName)" -y "${{ github.workspace }}\built\x64\Unicode Release" -c "!analyze -v; kP; q" -QY 2>&1 | Tee-Object -FilePath "${{ github.workspace }}\crash_analysis.txt"
+            }
+          }
+
+      - name: Upload crash analysis on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crash-analysis-${{ matrix.platform }}
+          path: ${{ github.workspace }}\crash_analysis.txt
+          if-no-files-found: ignore
+
       - name: Upload crash dumps on failure
         if: failure()
         uses: actions/upload-artifact@v4

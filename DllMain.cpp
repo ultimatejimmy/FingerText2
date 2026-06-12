@@ -155,6 +155,7 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification *notifyCode)
 
         case SCN_MODIFIED:
             if (g_inEditSnippet) break;
+            if (g_selectionMonitor != 1) break;  // skip if we're in a guarded mutation block
             // This can catch the to be inserted text, but it cannot catch tab as the text insert of tab is different in different situation
             //if ((nppLoaded) && (notifyCode->modificationType & (SC_MOD_BEFOREINSERT)))
             //{
@@ -239,6 +240,7 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification *notifyCode)
         // Swallow any exception from a notification handler so it doesn't
         // escape back into NPP's message dispatch and trigger
         // STATUS_FATAL_USER_CALLBACK_EXCEPTION.
+        debugLogf("beNotified EXCEPTION caught code=%d mon=%d inEdit=%d", notifyCode->nmhdr.code, g_selectionMonitor, g_inEditSnippet);
     }
 }
 

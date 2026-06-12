@@ -185,9 +185,80 @@ except ElementNotFoundError as exc:
 quit_npp(app, win)
 print("  [PASS] Empty selection no-op")
 
-# ── Test 3: Tab expansion ─────────────────────────────────────────────────────
+# ── Test 3: New Snippet button ────────────────────────────────────────────────
 
-print("\n[Test 3] Tab expansion of 'testtrigger'")
+print("\n[Test 3] New Snippet button does not crash")
+seed_database()
+app, win = launch_npp()
+
+try:
+    plugins_menu = win.child_window(title="Plugins", control_type="MenuItem")
+    plugins_menu.click_input(); time.sleep(0.4)
+    ft2 = win.child_window(title_re=".*FingerText2.*", control_type="MenuItem")
+    ft2.click_input(); time.sleep(0.4)
+    dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
+    dock_item.click_input(); time.sleep(2)
+
+    dock = win.child_window(title_re=".*FingerText2.*")
+    new_btn = dock.child_window(title="New Snippet", control_type="Button")
+    new_btn.click_input()
+    time.sleep(1.5)
+
+    no_exception_dialog(app)
+
+    tab_bar = win.child_window(control_type="TabItem", title_re=".*SnippetEditor.*")
+    tab_bar.wait("visible", timeout=5)
+
+except ElementNotFoundError as exc:
+    fail(f"Test 5 element not found: {exc}", "test5_not_found")
+
+quit_npp(app, win)
+print("  [PASS] New Snippet button")
+
+# ── Test 4: Create Snippet From Selection button ──────────────────────────────
+
+print("\n[Test 4] Create Snippet From Selection does not crash")
+seed_database()
+app, win = launch_npp()
+
+try:
+    # Open a new file
+    win.type_keys("^n"); time.sleep(0.5)
+
+    # Type and select some text
+    sci = win.child_window(control_type="Document")
+    sci.click_input()
+    win.type_keys("test snippet content", with_spaces=True); time.sleep(0.3)
+    win.type_keys("^a")  # select all
+    time.sleep(0.3)
+
+    # Show dock and click Create Snippet From Selection
+    plugins_menu = win.child_window(title="Plugins", control_type="MenuItem")
+    plugins_menu.click_input(); time.sleep(0.4)
+    ft2 = win.child_window(title_re=".*FingerText2.*", control_type="MenuItem")
+    ft2.click_input(); time.sleep(0.4)
+    dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
+    dock_item.click_input(); time.sleep(2)
+
+    dock = win.child_window(title_re=".*FingerText2.*")
+    create_btn = dock.child_window(title="Create Snippet From Selection", control_type="Button")
+    create_btn.click_input()
+    time.sleep(1.5)
+
+    no_exception_dialog(app)
+
+    tab_bar = win.child_window(control_type="TabItem", title_re=".*SnippetEditor.*")
+    tab_bar.wait("visible", timeout=5)
+
+except ElementNotFoundError as exc:
+    fail(f"Test 6 element not found: {exc}", "test6_not_found")
+
+quit_npp(app, win)
+print("  [PASS] Create Snippet From Selection button")
+
+# ── Test 5: Tab expansion ─────────────────────────────────────────────────────
+
+print("\n[Test 5] Tab expansion of 'testtrigger'")
 seed_database()
 app, win = launch_npp()
 
@@ -218,14 +289,14 @@ try:
         pass  # text read differently, not a failure criterion here
 
 except ElementNotFoundError as exc:
-    fail(f"Test 3 element not found: {exc}", "test3_not_found")
+    fail(f"Test 5 element not found: {exc}", "test5_not_found")
 
 quit_npp(app, win)
 print("  [PASS] Tab expansion")
 
 # ── Test 4: Import from .ftd ──────────────────────────────────────────────────
 
-print("\n[Test 4] Import snippets from .ftd file")
+print("\n[Test 6] Import snippets from .ftd file")
 seed_database()
 app, win = launch_npp()
 
@@ -258,14 +329,14 @@ try:
             pass
 
 except ElementNotFoundError as exc:
-    fail(f"Test 4 element not found: {exc}", "test4_not_found")
+    fail(f"Test 6 element not found: {exc}", "test6_not_found")
 
 quit_npp(app, win)
 print("  [PASS] Import from .ftd")
 
 # ── Test 5: Data migration from old FingerText config ─────────────────────────
 
-print("\n[Test 5] Migration from config\\FingerText")
+print("\n[Test 7] Migration from config\\FingerText")
 old_cfg = os.path.join(appdata, "Notepad++", "plugins", "config", "FingerText")
 old_db  = os.path.join(old_cfg, "FingerText.db3")
 new_db  = os.path.join(ft2_cfg, "FingerText2.db3")
@@ -290,7 +361,7 @@ try:
         fail("Migrated db3 is suspiciously small", "test5_small_db")
 
 except ElementNotFoundError as exc:
-    fail(f"Test 5 element not found: {exc}", "test5_not_found")
+    fail(f"Test 7 element not found: {exc}", "test7_not_found")
 
 quit_npp(app, win)
 print("  [PASS] Data migration")

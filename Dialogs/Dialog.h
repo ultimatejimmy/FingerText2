@@ -1216,7 +1216,6 @@
 #define psh5                            0x0404
 #define IDC_STATIC_TEXT6                1028
 #define psh6                            0x0405
-#define IDC_GETMORE                     1029
 #define psh7                            0x0406
 #define IDC_COMBO_HOTSPOT               1030
 #define psh8                            0x0407

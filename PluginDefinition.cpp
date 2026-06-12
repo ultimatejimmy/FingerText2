@@ -546,8 +546,9 @@ void doSelectionToSnippet()
 
 void selectionToSnippet(bool forceNew)
 {
+    debugLogf("selectionToSnippet ENTER forceNew=%d mon=%d inEdit=%d", forceNew, g_selectionMonitor, g_inEditSnippet);
     g_selectionMonitor--;
-    
+
     //pc.configInt[EDITOR_CARET_BOUND]--;
     
     //HWND curScintilla = getCurrentScintilla();
@@ -571,6 +572,7 @@ void selectionToSnippet(bool forceNew)
     
     //::SendMessage(curScintilla,SCI_GETSELTEXT,0, reinterpret_cast<LPARAM>(selection));
     openTab(g_ftbPath);
+    updateScintilla(); // refresh direct-call pointers in case tab opened in different view
     //if (!::SendMessage(nppData._nppHandle, NPPM_SWITCHTOFILE, 0, (LPARAM)g_ftbPath))
     //{
     //    ::SendMessage(nppData._nppHandle, NPPM_DOOPEN, 0, (LPARAM)g_ftbPath);
@@ -598,9 +600,11 @@ void selectionToSnippet(bool forceNew)
 
     if (withSelection) delete [] selection;
     ::SendScintilla(SCI_EMPTYUNDOBUFFER,0,0);
-    
+
     //pc.configInt[EDITOR_CARET_BOUND]++;
+    updateLineCount(); // sync g_editorLineCount before re-enabling monitor
     g_selectionMonitor++;
+    debugLogf("selectionToSnippet EXIT mon=%d", g_selectionMonitor);
 }
 
 void closeNonSessionTabs()
@@ -642,6 +646,7 @@ void insertSnippet()
 void editSnippet()
 {
     g_inEditSnippet = true;
+    debugLogf("editSnippet ENTER mon=%d inEdit=%d editorView=%d", g_selectionMonitor, g_inEditSnippet, g_editorView);
     int topIndex = -1;
     if (g_editorView) topIndex = snippetDock.getTopIndex();
 
@@ -750,6 +755,7 @@ void editSnippet()
     }
 
     delete [] bufferWide;
+    debugLogf("editSnippet EXIT mon=%d", g_selectionMonitor);
     g_inEditSnippet = false;
 }
 

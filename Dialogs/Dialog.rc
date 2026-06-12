@@ -79,7 +79,6 @@ BEGIN
     CONTROL         "Insert",IDC_RADIO_INSERT,"Button",BS_AUTORADIOBUTTON,16,260,40,10
     CONTROL         "Edit",IDC_RADIO_EDIT,"Button",BS_AUTORADIOBUTTON,79,260,32,10
     LTEXT           "(DoubleClick to Edit)",IDC_STATIC_TEXT6,54,37,99,9
-    PUSHBUTTON      "Download more snippets (coming soon)",IDC_GETMORE,6,227,50,14
     COMBOBOX        IDC_COMBO_HOTSPOT,100,274,48,30,CBS_DROPDOWNLIST | WS_VSCROLL
     PUSHBUTTON      "Insert",IDC_HOTSPOT,30,275,50,14
     LTEXT           "Hotspots and Special Symbols",IDC_STATIC_TEXT7,3,289,148,8

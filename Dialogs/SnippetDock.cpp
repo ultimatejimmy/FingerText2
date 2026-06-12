@@ -286,11 +286,9 @@ void DockingDlg::switchDock(bool toNormal)
     SetWindowPos(GetDlgItem(_hSelf, IDC_OPENEDITOR),NULL,2,2,290,editorButtonHeight,SWP_NOACTIVATE);
     //SetWindowPos(GetDlgItem(_hSelf, IDC_INSERT),NULL,2,30,130,30,SWP_NOACTIVATE);
     SetWindowPos(GetDlgItem(_hSelf, IDC_CREATESELECTION),NULL,2,24,290,editorButtonHeight,SWP_NOACTIVATE);
-    SetWindowPos(GetDlgItem(_hSelf, IDC_GETMORE),NULL,2,46,290,editorButtonHeight,SWP_NOACTIVATE);
-    
+
     if (toNormal)
     {
-        ::ShowWindow(GetDlgItem(_hSelf, IDC_GETMORE),SW_SHOW);
         ::ShowWindow(GetDlgItem(_hSelf, IDC_CREATESELECTION),SW_SHOW);
         //ShowWindow(GetDlgItem(_hSelf, IDC_INSERT),SW_SHOW);
         ::ShowWindow(GetDlgItem(_hSelf, IDC_OPENEDITOR),SW_SHOW);
@@ -321,7 +319,6 @@ void DockingDlg::switchDock(bool toNormal)
 
     } else
     {
-        ::ShowWindow(GetDlgItem(_hSelf, IDC_GETMORE),SW_HIDE);
         ::ShowWindow(GetDlgItem(_hSelf, IDC_CREATESELECTION),SW_HIDE);
         //::ShowWindow(GetDlgItem(_hSelf, IDC_INSERT),SW_HIDE);
         ::ShowWindow(GetDlgItem(_hSelf, IDC_OPENEDITOR),SW_HIDE);
@@ -605,13 +602,35 @@ INT_PTR CALLBACK DockingDlg::run_dlgProc(UINT message, WPARAM wParam, LPARAM lPa
 
                 case IDC_NEW:
                 {
-                    selectionToSnippet(true);
+                    try
+                    {
+                        selectionToSnippet(true);
+                    }
+                    catch (const std::exception& e)
+                    {
+                        ::MessageBoxA(NULL, e.what(), "FingerText2: exception in new snippet", MB_OK | MB_ICONERROR);
+                    }
+                    catch (...)
+                    {
+                        ::MessageBoxA(NULL, "Unknown exception in selectionToSnippet", "FingerText2", MB_OK | MB_ICONERROR);
+                    }
                     return true;
                 }
 
                 case IDC_CREATESELECTION:
                 {
-                    selectionToSnippet();
+                    try
+                    {
+                        selectionToSnippet();
+                    }
+                    catch (const std::exception& e)
+                    {
+                        ::MessageBoxA(NULL, e.what(), "FingerText2: exception in create from selection", MB_OK | MB_ICONERROR);
+                    }
+                    catch (...)
+                    {
+                        ::MessageBoxA(NULL, "Unknown exception in selectionToSnippet", "FingerText2", MB_OK | MB_ICONERROR);
+                    }
                     //createSnippet();
                     return true;
                 }
@@ -675,8 +694,6 @@ INT_PTR CALLBACK DockingDlg::run_dlgProc(UINT message, WPARAM wParam, LPARAM lPa
         {
             setupHotspotCombo();
 
-            ::Button_Enable(GetDlgItem(_hSelf, IDC_GETMORE), false);
-            
             //switchDock(true);
             return true;
             //updateMode();

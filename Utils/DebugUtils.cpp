@@ -123,3 +123,23 @@ void alert(double input)
     ss << input;
     alert(ss.str());
 }
+
+void debugLog(const char* msg)
+{
+    OutputDebugStringA("[FT2] ");
+    OutputDebugStringA(msg);
+    OutputDebugStringA("\n");
+}
+
+void debugLogf(const char* fmt, ...)
+{
+    char buf[512];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf_s(buf, sizeof(buf), _TRUNCATE, fmt, args);
+    va_end(args);
+
+    OutputDebugStringA("[FT2] ");
+    OutputDebugStringA(buf);
+    OutputDebugStringA("\n");
+}
