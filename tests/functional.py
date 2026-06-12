@@ -61,6 +61,41 @@ def no_exception_dialog(app):
     if dlgs:
         fail("Plugin Exception dialog appeared unexpectedly", "unexpected_exception")
 
+def close_welcome(app, win):
+    """Dismiss the 'Welcome to FingerText2' buffer opened on first run so it
+    doesn't shadow the dock selector or the active Document."""
+    try:
+        wd = win.child_window(title_re=".*Welcome to FingerText2.*", timeout=1)
+        if wd.exists(timeout=1):
+            win.type_keys("^w")
+            time.sleep(0.5)
+            for dlg in app.windows(title_re=".*Save.*|.*Notepad.*"):
+                try:
+                    dlg.child_window(title_re=".*Don.*t Save.*|.*No.*",
+                                     control_type="Button").click_input()
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+def find_dock(win):
+    """The welcome document also matches '.*FingerText2.*'; return the panel
+    that actually contains the snippet List/buttons."""
+    candidates = win.descendants(title_re=".*FingerText2.*")
+    for c in candidates:
+        try:
+            if c.descendants(control_type="List"):
+                return c
+        except Exception:
+            continue
+    for c in candidates:
+        try:
+            if c.descendants(title="New Snippet", control_type="Button"):
+                return c
+        except Exception:
+            continue
+    raise ElementNotFoundError("SnippetDock panel not found")
+
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
 npp_exe = env_required("NPP_EXE")
@@ -93,6 +128,7 @@ def launch_npp():
     win.wait("visible", timeout=20)
     time.sleep(2)
     no_exception_dialog(app)
+    close_welcome(app, win)
     return app, win
 
 def quit_npp(app, win):
@@ -128,7 +164,7 @@ try:
 
     # Click the first item in the dock list
     # The dock is embedded in NPP's window tree, search within win
-    dock = win.child_window(title_re=".*FingerText2.*")
+    dock = find_dock(win)
     listbox = dock.child_window(control_type="List")
     if listbox.item_count() == 0:
         fail("Snippet dock list is empty after seeding", "empty_dock")
@@ -166,7 +202,7 @@ try:
     dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
     dock_item.click_input(); time.sleep(2)
 
-    dock = win.child_window(title_re=".*FingerText2.*")
+    dock = find_dock(win)
 
     # Deselect everything by clicking blank area in the listbox
     listbox = dock.child_window(control_type="List")
@@ -199,7 +235,7 @@ try:
     dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
     dock_item.click_input(); time.sleep(2)
 
-    dock = win.child_window(title_re=".*FingerText2.*")
+    dock = find_dock(win)
     new_btn = dock.child_window(title="New Snippet", control_type="Button")
     new_btn.click_input()
     time.sleep(1.5)
@@ -240,7 +276,7 @@ try:
     dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
     dock_item.click_input(); time.sleep(2)
 
-    dock = win.child_window(title_re=".*FingerText2.*")
+    dock = find_dock(win)
     create_btn = dock.child_window(title="Create Snippet From Selection", control_type="Button")
     create_btn.click_input()
     time.sleep(1.5)
