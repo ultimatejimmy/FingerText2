@@ -685,6 +685,7 @@ void editSnippet()
             // After loading the content, switch to the editor buffer and promput for saving if needed
             g_selectionMonitor--;
             openTab(g_ftbPath);
+            updateScintilla(); // refresh direct-call pointers in case the tab opened in a different view
 
             std::string allScope = "";
             //if (!::SendMessage(nppData._nppHandle, NPPM_SWITCHTOFILE, 0, (LPARAM)g_ftbPath))
@@ -726,12 +727,13 @@ void editSnippet()
 
             g_editorView = true;
             refreshAnnotation();
+            updateLineCount(); // sync g_editorLineCount before selectionMonitor can fire
             g_selectionMonitor++;
 		}
 	}
 
 	sqlite3_finalize(stmt);
-    
+
     ::SendScintilla(SCI_SETSAVEPOINT,0,0);
     ::SendScintilla(SCI_EMPTYUNDOBUFFER,0,0);
     delete [] tempTriggerText;
@@ -746,7 +748,6 @@ void editSnippet()
     {
         snippetDock.setTopIndex(topIndex);
     }
-
 
     delete [] bufferWide;
     g_inEditSnippet = false;

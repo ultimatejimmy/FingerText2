@@ -193,6 +193,7 @@ extern "C" __declspec(dllexport) void beNotified(SCNotification *notifyCode)
             //}
             break;
         case NPPN_FILESAVED:
+            if (g_inEditSnippet) break;
             //keyUpdate();
             //refreshAnnotation();
             updateDockItems(true,false,"%",true);
