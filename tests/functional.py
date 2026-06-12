@@ -199,7 +199,6 @@ try:
     time.sleep(2)
 
     # Dump tree once right after dock toggle, with dock open — captures real UIA state
-    global _tree_dumped
     if not _tree_dumped:
         print("(dumping control tree after dock toggle)")
         dump_tree("dock_open")
