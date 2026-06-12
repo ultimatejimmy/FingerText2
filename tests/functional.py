@@ -19,6 +19,13 @@ import time
 import shutil
 import tempfile
 
+# Fix stdout/stderr encoding to UTF-8 so dump_tree never crashes on non-cp1252 chars.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
+
 try:
     import pywinauto
     from pywinauto.application import Application
@@ -33,7 +40,9 @@ try:
 except ImportError:
     HAS_PYAUTOGUI = False
 
-_DIAG_WIN = None  # global for control-tree dumps on failure
+_DIAG_WIN = None   # main NPP window for tree dumps
+_DIAG_APP = None   # app object for top-level window enumeration
+_tree_dumped = False  # dump tree only once per run
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -46,20 +55,42 @@ def screenshot(name: str):
         except Exception:
             pass  # pyscreeze/Pillow may be absent; screenshots are best-effort
 
-def dump_tree(win):
-    """Dump the UIA control tree for diagnostics on failure."""
-    try:
-        print("---- UIA control tree ----")
-        win.print_control_identifiers(depth=12)
-        print("---- end tree ----")
-    except Exception as exc:
-        print(f"(tree dump failed: {exc})")
+def dump_tree(tag="tree"):
+    """Dump UIA tree to a UTF-8 file (bypasses cp1252 console) + print.
+    Also enumerates top-level app windows — the dock may be hosted as a
+    separate top-level window, not a subtree of the main NPP window."""
+    global _DIAG_WIN, _DIAG_APP, _tree_dumped
+    _tree_dumped = True
+    path = os.path.join(tempfile.gettempdir(), f"ft2_{tag}.txt")
+    # Subtree of main window
+    if _DIAG_WIN:
+        try:
+            _DIAG_WIN.print_control_identifiers(depth=20, filename=path)
+            print(f"  Subtree written to {path}")
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                print(fh.read())
+        except Exception as exc:
+            print(f"(subtree dump failed: {exc})")
+    # All top-level windows (dock may be its own window)
+    if _DIAG_APP:
+        try:
+            print("---- top-level windows ----")
+            for w in _DIAG_APP.windows():
+                try:
+                    print(f"  TOP: name={w.element_info.name!r} "
+                          f"ctrl={w.element_info.control_type!r} "
+                          f"class={w.element_info.class_name!r}")
+                    tpath = os.path.join(tempfile.gettempdir(),
+                                         f"ft2_{tag}_top_{w.element_info.class_name}.txt")
+                    w.print_control_identifiers(depth=10, filename=tpath)
+                except Exception:
+                    pass
+        except Exception as exc:
+            print(f"(top-level enum failed: {exc})")
 
 def fail(msg: str, label: str = "failure"):
-    global _DIAG_WIN
     screenshot(label)
-    if _DIAG_WIN:
-        dump_tree(_DIAG_WIN)
+    dump_tree(label)
     print(f"FAIL: {msg}")
     sys.exit(1)
 
@@ -124,7 +155,7 @@ def seed_database():
     shutil.copy2(ft2_db, os.path.join(ft2_cfg, "FingerText2.db3"))
 
 def launch_npp():
-    global _DIAG_WIN
+    global _DIAG_WIN, _DIAG_APP
     install_plugin()
     app = Application(backend="uia").start(npp_exe, timeout=30)
     win = app.window(title_re=".*Notepad\\+\\+.*", control_type="Window")
@@ -133,6 +164,7 @@ def launch_npp():
     no_exception_dialog(app)
     close_welcome(app, win)
     _DIAG_WIN = win
+    _DIAG_APP = app
     return app, win
 
 def quit_npp(app, win):
@@ -165,6 +197,13 @@ try:
     dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
     dock_item.click_input()
     time.sleep(2)
+
+    # Dump tree once right after dock toggle, with dock open — captures real UIA state
+    global _tree_dumped
+    if not _tree_dumped:
+        print("(dumping control tree after dock toggle)")
+        dump_tree("dock_open")
+        time.sleep(0.5)
 
     # Click the first item in the dock list
     # The dock is embedded in NPP's window tree, search within win

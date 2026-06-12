@@ -199,6 +199,14 @@ jobs:
             built\**\*.pdb
           if-no-files-found: ignore
 
+      - name: Upload control tree dumps
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: functional-tree-${{ matrix.platform }}
+          path: ${{ runner.temp }}\\ft2_*.txt
+          if-no-files-found: ignore
+
       - name: Upload screenshots on failure
         if: failure()
         uses: actions/upload-artifact@v4
