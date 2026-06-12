@@ -56,37 +56,36 @@ def screenshot(name: str):
             pass  # pyscreeze/Pillow may be absent; screenshots are best-effort
 
 def dump_tree(tag="tree"):
-    """Dump UIA tree to a UTF-8 file (bypasses cp1252 console) + print.
-    Also enumerates top-level app windows — the dock may be hosted as a
-    separate top-level window, not a subtree of the main NPP window."""
+    """Dump UIA tree with encoding-safe custom walker (avoids cp1252 crash).
+    pywinauto 0.6.8's print_control_identifiers uses locale.getpreferredencoding()
+    (cp1252 on Windows), which crashes on fullwidth chars. Instead, walk
+    descendants() and print through the reconfigured (utf-8/replace) stdout."""
     global _DIAG_WIN, _DIAG_APP, _tree_dumped
     _tree_dumped = True
-    path = os.path.join(tempfile.gettempdir(), f"ft2_{tag}.txt")
-    # Subtree of main window
+
+    def walk_tree(elem, depth=0, max_depth=20):
+        if depth > max_depth:
+            return
+        indent = "  " * depth
+        try:
+            name = getattr(elem.element_info, "name", "?")
+            ctrl_type = getattr(elem.element_info, "control_type", "?")
+            class_name = getattr(elem.element_info, "class_name", "?")
+            auto_id = getattr(elem.element_info, "automation_id", "?")
+            print(f"{indent}[{depth}] {ctrl_type:20} name={name!r:30} class={class_name!r:15} id={auto_id!r}")
+        except Exception as exc:
+            print(f"{indent}(error at depth {depth}: {exc})")
+            return
+        try:
+            for child in elem.children():
+                walk_tree(child, depth + 1, max_depth)
+        except Exception:
+            pass
+
+    print(f"---- UIA tree walk (tag={tag}) ----")
     if _DIAG_WIN:
-        try:
-            _DIAG_WIN.print_control_identifiers(depth=20, filename=path)
-            print(f"  Subtree written to {path}")
-            with open(path, encoding="utf-8", errors="replace") as fh:
-                print(fh.read())
-        except Exception as exc:
-            print(f"(subtree dump failed: {exc})")
-    # All top-level windows (dock may be its own window)
-    if _DIAG_APP:
-        try:
-            print("---- top-level windows ----")
-            for w in _DIAG_APP.windows():
-                try:
-                    print(f"  TOP: name={w.element_info.name!r} "
-                          f"ctrl={w.element_info.control_type!r} "
-                          f"class={w.element_info.class_name!r}")
-                    tpath = os.path.join(tempfile.gettempdir(),
-                                         f"ft2_{tag}_top_{w.element_info.class_name}.txt")
-                    w.print_control_identifiers(depth=10, filename=tpath)
-                except Exception:
-                    pass
-        except Exception as exc:
-            print(f"(top-level enum failed: {exc})")
+        walk_tree(_DIAG_WIN)
+    print("---- end tree ----")
 
 def fail(msg: str, label: str = "failure"):
     screenshot(label)
