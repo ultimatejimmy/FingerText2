@@ -80,20 +80,27 @@ def close_welcome(app, win):
 
 def find_dock(win):
     """The welcome document also matches '.*FingerText2.*'; return the panel
-    that actually contains the snippet List/buttons."""
-    candidates = win.descendants(title_re=".*FingerText2.*")
-    for c in candidates:
-        try:
-            if c.descendants(control_type="List"):
-                return c
-        except Exception:
-            continue
-    for c in candidates:
-        try:
-            if c.descendants(title="New Snippet", control_type="Button"):
-                return c
-        except Exception:
-            continue
+    that actually contains the snippet List/buttons. pywinauto 0.6.8 doesn't
+    support title_re in descendants(), so use child_window() instead."""
+    try:
+        # Try to find the element with title matching FingerText2 that contains a List
+        candidates = win.descendants(control_type="Pane")
+        for c in candidates:
+            try:
+                if "FingerText2" in str(c.element_info.name):
+                    if c.descendants(control_type="List"):
+                        return c
+            except Exception:
+                continue
+    except Exception:
+        pass
+
+    # Fallback: look for the New Snippet button (it's only in the dock, not the document)
+    try:
+        return win.child_window(title="New Snippet", control_type="Button").parent()
+    except Exception:
+        pass
+
     raise ElementNotFoundError("SnippetDock panel not found")
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
