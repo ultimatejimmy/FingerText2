@@ -38,6 +38,7 @@ extern int nppLoaded;
 extern int sciFocus;
 extern bool g_onHotSpot;
 extern bool g_inEditSnippet;
+extern int g_selectionMonitor;
 
 BOOL APIENTRY DllMain(HANDLE hModule, DWORD reasonForCall, LPVOID lpReserved)
 {
