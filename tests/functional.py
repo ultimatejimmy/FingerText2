@@ -33,6 +33,8 @@ try:
 except ImportError:
     HAS_PYAUTOGUI = False
 
+_DIAG_WIN = None  # global for control-tree dumps on failure
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def screenshot(name: str):
@@ -44,8 +46,20 @@ def screenshot(name: str):
         except Exception:
             pass  # pyscreeze/Pillow may be absent; screenshots are best-effort
 
+def dump_tree(win):
+    """Dump the UIA control tree for diagnostics on failure."""
+    try:
+        print("---- UIA control tree ----")
+        win.print_control_identifiers(depth=12)
+        print("---- end tree ----")
+    except Exception as exc:
+        print(f"(tree dump failed: {exc})")
+
 def fail(msg: str, label: str = "failure"):
+    global _DIAG_WIN
     screenshot(label)
+    if _DIAG_WIN:
+        dump_tree(_DIAG_WIN)
     print(f"FAIL: {msg}")
     sys.exit(1)
 
@@ -79,10 +93,10 @@ def close_welcome(app, win):
         pass
 
 def find_dock(win):
-    """The dock panel UIA name is exactly 'FingerText2'. The welcome document's
-    Scintilla accessibility name is 'Welcome to FingerText2 26.5.26.2...' (longer).
-    Exact title match avoids regex collision with the document."""
-    return win.child_window(title="FingerText2")
+    """NPP strips the docked dialog's caption, so there's no 'FingerText2'
+    UIA node. The dock's buttons/List are unique descendants of the main
+    window, so search there directly."""
+    return win
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
@@ -110,6 +124,7 @@ def seed_database():
     shutil.copy2(ft2_db, os.path.join(ft2_cfg, "FingerText2.db3"))
 
 def launch_npp():
+    global _DIAG_WIN
     install_plugin()
     app = Application(backend="uia").start(npp_exe, timeout=30)
     win = app.window(title_re=".*Notepad\\+\\+.*", control_type="Window")
@@ -117,6 +132,7 @@ def launch_npp():
     time.sleep(2)
     no_exception_dialog(app)
     close_welcome(app, win)
+    _DIAG_WIN = win
     return app, win
 
 def quit_npp(app, win):
