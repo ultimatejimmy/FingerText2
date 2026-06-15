@@ -353,11 +353,10 @@ try:
 
     no_exception_dialog(app)
 
-    # Confirm the dialog appeared. It's a plugin-owned #32770 popup; do NOT
-    # constrain control_type (UIA may report Window, Pane, or Dialog). Scan
-    # top-level windows by caption instead.
+    # Confirm the dialog appeared. It's an owned #32770 popup that UIA nests as a
+    # CHILD of the main NPP window (not a top-level app window), so scan win.children().
     about = None
-    for w in app.windows():
+    for w in win.children():
         try:
             if "About" in (w.window_text() or ""):
                 about = w
@@ -368,14 +367,16 @@ try:
     if about is None:
         fail("About dialog did not appear after menu command", "test5_about_no_window")
 
-    # Close it cleanly so quit_npp is happy
+    # Close via the OK button (id 1); fall back to Esc (IDCANCEL).
     try:
-        about.type_keys("{ENTER}")
+        for ctrl in about.children():
+            if (ctrl.window_text() or "").strip() == "OK":
+                ctrl.click_input()
+                break
+        else:
+            about.type_keys("{ESC}")
     except Exception:
-        try:
-            about.close()
-        except Exception:
-            pass
+        pass
     time.sleep(0.5)
 
 except Exception as exc:
