@@ -75,6 +75,6 @@ INT_PTR CALLBACK AboutDlg::run_dlgProc(UINT message, WPARAM wParam, LPARAM lPara
 			}
 		}
 		default:
-			return StaticDialog::dlgProc(_hSelf, message, wParam, lParam);
+			return FALSE;
 	}
 }

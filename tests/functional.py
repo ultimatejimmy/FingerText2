@@ -335,9 +335,37 @@ quit_npp(app, win)
 print("  [PASS] Import from .ftd")
 
 
-# ── Test 5: Data migration ────────────────────────────────────────────────────
+# ── Test 5: About dialog (regression) ─────────────────────────────────────────
 
-print("\n[Test 5] Migration from config\\FingerText")
+print("\n[Test 5] About dialog opens without crash")
+seed_database()
+app, win = launch_npp()
+
+try:
+    menu_cmd("Plugins->FingerText2->About")
+    time.sleep(0.5)
+
+    # The About dialog is a top-level modal (not docked), so it's visible to UIA
+    about_dlg = app.window(title_re=".*About FingerText2.*", control_type="Window")
+    about_dlg.wait("visible", timeout=5)
+
+    # If we get here, the dialog opened and NPP didn't crash (a dead process would fail the UIA call)
+    no_exception_dialog(app)
+
+    # Close the dialog
+    about_dlg.type_keys("{ENTER}")
+    time.sleep(0.5)
+
+except ElementNotFoundError as exc:
+    fail(f"Test 5 element not found: {exc}", "test5_about_not_found")
+
+quit_npp(app, win)
+print("  [PASS] About dialog")
+
+
+# ── Test 6: Data migration ────────────────────────────────────────────────────
+
+print("\n[Test 6] Migration from config\\FingerText")
 old_cfg = os.path.join(_npp_plugin_cfg, "FingerText")
 old_db  = os.path.join(old_cfg, "FingerText.db3")
 new_db  = os.path.join(ft2_cfg, "FingerText2.db3")
