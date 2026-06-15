@@ -1149,6 +1149,11 @@
 #define WM_PENWINFIRST                  0x0380
 #define WM_PENWINLAST                   0x038F
 #define WM_DDE_FIRST                    0x03E0
+
+#ifndef IDC_STATIC
+#define IDC_STATIC (-1)
+#endif
+
 #define IDC_SNIPPET_LIST                1000
 #define IDC_INSERTION_EDIT              1001
 #define IDC_FILTER                      1001
