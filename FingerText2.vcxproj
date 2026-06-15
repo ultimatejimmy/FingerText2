@@ -180,6 +180,7 @@
   <ItemGroup>
     <ClCompile Include="Config\PluginConfig.cpp" />
     <ClCompile Include="DialogFeatures\StaticDialog.cpp" />
+    <ClCompile Include="Dialogs\AboutDialog.cpp" />
     <ClCompile Include="Dialogs\CreationDialog.cpp" />
     <ClCompile Include="Dialogs\InsertionDialog.cpp" />
     <ClCompile Include="Dialogs\SettingDialog.cpp" />
@@ -201,6 +202,7 @@
     <ClInclude Include="DialogFeatures\DockingResource.h" />
     <ClInclude Include="DialogFeatures\StaticDialog.h" />
     <ClInclude Include="DialogFeatures\Window.h" />
+    <ClInclude Include="Dialogs\AboutDialog.h" />
     <ClInclude Include="Dialogs\CreationDialog.h" />
     <ClInclude Include="Dialogs\Dialog.h" />
     <ClInclude Include="Dialogs\InsertionDialog.h" />

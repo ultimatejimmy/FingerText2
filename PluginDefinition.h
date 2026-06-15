@@ -49,6 +49,7 @@
 #include "SnippetDock.h"
 #include "SettingDialog.h"
 #include "CreationDialog.h"
+#include "AboutDialog.h"
 #include "Version.h"
 #include "DuckEval.h"
 #include "NppApiHelpers.h"

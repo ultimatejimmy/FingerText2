@@ -1428,6 +1428,12 @@
 #define IDD_INSERTION_DLG               2200
 #define IDD_SETTING_DLG                 2300
 #define IDD_CREATION_DLG                2400
+#define IDD_ABOUT_DLG                   2500
+#define IDC_ABOUT_TITLE                 2501
+#define IDC_ABOUT_VERSION               2502
+#define IDC_ABOUT_AUTHOR                2503
+#define IDC_ABOUT_COPYRIGHT             2504
+#define IDC_ABOUT_LINKS                 2505
 #define LVS_ALIGNMASK                   0x0c00
 #define CS_BYTEALIGNCLIENT              0x1000
 #define HDS_OVERFLOW                    0x1000

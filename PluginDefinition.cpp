@@ -63,6 +63,7 @@ DockingDlg snippetDock;
 InsertionDlg insertionDlg;
 SettingDlg settingDlg;
 CreationDlg creationDlg;
+AboutDlg aboutDlg;
 
 // Need a record for all the cmdIndex that involve a dock or a shortkey
 int g_snippetDockIndex;
@@ -191,6 +192,7 @@ void dialogsInit()
     insertionDlg.init((HINSTANCE)g_hModule, nppData);
     settingDlg.init((HINSTANCE)g_hModule, nppData);
     creationDlg.init((HINSTANCE)g_hModule, nppData);
+    aboutDlg.init((HINSTANCE)g_hModule, nppData);
 }
 
 void pathInit()
@@ -4642,7 +4644,7 @@ void showHelp()
 
 void showAbout()
 {
-    pc.about();
+    aboutDlg.doDialog();
 }
 
 void refreshAnnotation()
