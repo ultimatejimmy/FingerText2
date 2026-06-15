@@ -343,21 +343,43 @@ app, win = launch_npp()
 
 try:
     menu_cmd("Plugins->FingerText2->About")
-    time.sleep(0.5)
+    time.sleep(1.0)
 
-    # The About dialog is a top-level modal (not docked), so it's visible to UIA
-    about_dlg = app.window(title_re=".*About FingerText2.*", control_type="Window")
-    about_dlg.wait("visible", timeout=5)
+    # Primary regression gate: the old bug was infinite recursion -> stack overflow
+    # that kills NPP. is_process_running() returns False if dead (no exception).
+    if not app.is_process_running():
+        fail("NPP process exited after About menu command (crash regression)",
+             "test5_about_crash")
 
-    # If we get here, the dialog opened and NPP didn't crash (a dead process would fail the UIA call)
     no_exception_dialog(app)
 
-    # Close the dialog
-    about_dlg.type_keys("{ENTER}")
+    # Confirm the dialog appeared. It's a plugin-owned #32770 popup; do NOT
+    # constrain control_type (UIA may report Window, Pane, or Dialog). Scan
+    # top-level windows by caption instead.
+    about = None
+    for w in app.windows():
+        try:
+            if "About" in (w.window_text() or ""):
+                about = w
+                break
+        except Exception:
+            pass
+
+    if about is None:
+        fail("About dialog did not appear after menu command", "test5_about_no_window")
+
+    # Close it cleanly so quit_npp is happy
+    try:
+        about.type_keys("{ENTER}")
+    except Exception:
+        try:
+            about.close()
+        except Exception:
+            pass
     time.sleep(0.5)
 
-except ElementNotFoundError as exc:
-    fail(f"Test 5 element not found: {exc}", "test5_about_not_found")
+except Exception as exc:
+    fail(f"Test 5 error: {exc}", "test5_about_error")
 
 quit_npp(app, win)
 print("  [PASS] About dialog")

@@ -29,9 +29,9 @@
 
 //#define TESTING
 
-#define VERSION_TEXT "26.5.26.2"
-#define VERSION_NUM 26,5,26,2
-#define VERSION_LINEAR 260526020
+#define VERSION_TEXT "26.6.15"
+#define VERSION_NUM 26,6,15,0
+#define VERSION_LINEAR 260615000
 #define VERSION_KEEP_CONFIG_START 549
 #define VERSION_STAGE ""
 #ifdef TESTING
@@ -48,7 +48,7 @@
 #define COPYRIGHT_TEXT "Copyright (C) 2026"
 #define DESCRIPTION_TEXT "A snippet plugin for notepad++"
 
-#define DATE_TEXT "May 2026"
+#define DATE_TEXT "June 2026"
 #define AUTHOR_TEXT "Author: Jimmy Pautz\r\n"
 #define EMAIL_TEXT ""
 #define ABOUT_TEXT "\
