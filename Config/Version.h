@@ -58,7 +58,7 @@ Documentation:\r\n\
            https://github.com/ultimatejimmy/FingerText2/wiki \r\n\r\n\
 "
 #ifdef TESTING
-#define MENU_LENGTH 22
+#define MENU_LENGTH 23
 #else
-#define MENU_LENGTH 17
+#define MENU_LENGTH 19
 #endif
