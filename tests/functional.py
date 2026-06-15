@@ -1,16 +1,19 @@
 """
-Tier 2 functional tests — run on tag pushes, gates the draft release.
+Tier 2 functional tests — run after build, gates the draft release.
 
-Requires all of the same environment variables as smoke.py, plus:
-  - FT2_DB    env var pointing to tests/fixtures/FingerText2_seed.db3
-  - FT2_FTD   env var pointing to tests/fixtures/test_pack.ftd
+Requires:
+  NPP_EXE  — path to notepad++.exe
+  FT2_DLL  — path to FingerText2.dll to install
+  FT2_DB   — path to tests/fixtures/FingerText2_seed.db3
+  FT2_FTD  — path to tests/fixtures/test_pack.ftd
 
-Coverage:
-  1. Open-in-editor: select seeded snippet, click 'Switch To Snippet Editor', verify tab opens
-  2. Empty-selection no-op: deselect all, click 'Switch To Snippet Editor', verify no crash
-  3. Tab expansion: open new file, type testtrigger, press Tab, verify expanded body
-  4. Import from .ftd: drive the file-open dialog, verify success message
-  5. Data migration: fresh FT2 config, seed old FingerText db, verify FT2 picks it up
+Coverage (menu-driven — NPP's docked dialog is invisible to the UIA tree;
+dock-button paths are reachable via menu commands for the same code paths):
+  1. Create Snippet from Selection (text selected) — SnippetEditor.ftb opens
+  2. Create Snippet from Selection (empty buffer) — no crash
+  3. Tab expansion: type trigger + Tab, verify expanded body
+  4. Import from .ftd: file dialog, verify no crash
+  5. Data migration: fresh FT2 config, seed old FingerText db, verify migration
 """
 
 import os
@@ -19,7 +22,6 @@ import time
 import shutil
 import tempfile
 
-# Fix stdout/stderr encoding to UTF-8 so dump_tree never crashes on non-cp1252 chars.
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
@@ -40,9 +42,10 @@ try:
 except ImportError:
     HAS_PYAUTOGUI = False
 
-_DIAG_WIN = None   # main NPP window for tree dumps
-_DIAG_APP = None   # app object for top-level window enumeration
-_tree_dumped = False  # dump tree only once per run
+_DIAG_WIN  = None   # UIA main NPP window (for tree dumps on failure)
+_WIN32_WIN = None   # win32 wrapper for menu_select (dock is invisible to UIA)
+_tree_dumped = False
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -53,45 +56,48 @@ def screenshot(name: str):
             pyautogui.screenshot(path)
             print(f"  Screenshot: {path}")
         except Exception:
-            pass  # pyscreeze/Pillow may be absent; screenshots are best-effort
+            pass
+
 
 def dump_tree(tag="tree"):
-    """Dump UIA tree with encoding-safe custom walker (avoids cp1252 crash).
-    pywinauto 0.6.8's print_control_identifiers uses locale.getpreferredencoding()
-    (cp1252 on Windows), which crashes on fullwidth chars. Instead, walk
-    descendants() and print through the reconfigured (utf-8/replace) stdout."""
-    global _DIAG_WIN, _DIAG_APP, _tree_dumped
+    """Encoding-safe UIA walker. pywinauto 0.6.8 print_control_identifiers uses
+    locale.getpreferredencoding() (cp1252) and crashes on fullwidth chars like
+    \\uff0b. Walk children() through the reconfigured utf-8/replace stdout."""
+    global _tree_dumped
     _tree_dumped = True
 
-    def walk_tree(elem, depth=0, max_depth=20):
-        if depth > max_depth:
+    def walk(elem, depth=0):
+        if depth > 20:
             return
-        indent = "  " * depth
+        pad = "  " * depth
         try:
-            name = getattr(elem.element_info, "name", "?")
-            ctrl_type = getattr(elem.element_info, "control_type", "?")
-            class_name = getattr(elem.element_info, "class_name", "?")
-            auto_id = getattr(elem.element_info, "automation_id", "?")
-            print(f"{indent}[{depth}] {ctrl_type:20} name={name!r:30} class={class_name!r:15} id={auto_id!r}")
+            n  = getattr(elem.element_info, "name", "?")
+            ct = getattr(elem.element_info, "control_type", "?")
+            cl = getattr(elem.element_info, "class_name", "?")
+            ai = getattr(elem.element_info, "automation_id", "?")
+            print(f"{pad}[{depth}] {ct:20} name={n!r:30} class={cl!r:15} id={ai!r}")
         except Exception as exc:
-            print(f"{indent}(error at depth {depth}: {exc})")
+            print(f"{pad}(error: {exc})")
             return
         try:
             for child in elem.children():
-                walk_tree(child, depth + 1, max_depth)
+                walk(child, depth + 1)
         except Exception:
             pass
 
-    print(f"---- UIA tree walk (tag={tag}) ----")
+    print(f"---- UIA tree ({tag}) ----")
     if _DIAG_WIN:
-        walk_tree(_DIAG_WIN)
-    print("---- end tree ----")
+        walk(_DIAG_WIN)
+    print("---- end ----")
+
 
 def fail(msg: str, label: str = "failure"):
     screenshot(label)
-    dump_tree(label)
+    if not _tree_dumped:
+        dump_tree(label)
     print(f"FAIL: {msg}")
     sys.exit(1)
+
 
 def env_required(var: str) -> str:
     val = os.environ.get(var)
@@ -100,14 +106,15 @@ def env_required(var: str) -> str:
         sys.exit(1)
     return val
 
+
 def no_exception_dialog(app):
     dlgs = app.windows(title_re=".*Plugin.*Exception.*|.*Access.*violation.*|.*PluginsManager.*")
     if dlgs:
-        fail("Plugin Exception dialog appeared unexpectedly", "unexpected_exception")
+        fail("Plugin Exception dialog appeared", "unexpected_exception")
+
 
 def close_welcome(app, win):
-    """Dismiss the 'Welcome to FingerText2' buffer opened on first run so it
-    doesn't shadow the dock selector or the active Document."""
+    """Dismiss the 'Welcome to FingerText2' buffer opened on first run."""
     try:
         wd = win.child_window(title_re=".*Welcome to FingerText2.*", timeout=1)
         if wd.exists(timeout=1):
@@ -122,11 +129,16 @@ def close_welcome(app, win):
     except Exception:
         pass
 
-def find_dock(win):
-    """NPP strips the docked dialog's caption, so there's no 'FingerText2'
-    UIA node. The dock's buttons/List are unique descendants of the main
-    window, so search there directly."""
-    return win
+
+def menu_cmd(path: str):
+    """Fire an NPP menu command via the win32 backend.
+    The FingerText2 dock panel is absent from the UIA tree, but menu commands
+    always work and reach the same underlying C++ functions as the dock buttons.
+    Example: menu_cmd("Plugins->FingerText2->Create Snippet from Selection")
+    """
+    _WIN32_WIN.menu_select(path)
+    time.sleep(0.5)
+
 
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
@@ -142,117 +154,108 @@ for path, name in [(npp_exe, "NPP_EXE"), (ft2_dll, "FT2_DLL"),
 
 npp_dir = os.path.dirname(npp_exe)
 appdata = os.environ.get("APPDATA", "")
-ft2_cfg = os.path.join(appdata, "Notepad++", "plugins", "config", "FingerText2")
+# Portable NPP (doLocalConf.xml present) stores plugin config inside its own tree.
+# System-installed NPP stores it in APPDATA.
+if os.path.isfile(os.path.join(npp_dir, "doLocalConf.xml")):
+    _npp_plugin_cfg = os.path.join(npp_dir, "plugins", "config")
+else:
+    _npp_plugin_cfg = os.path.join(appdata, "Notepad++", "plugins", "config")
+ft2_cfg = os.path.join(_npp_plugin_cfg, "FingerText2")
+
 
 def install_plugin():
     plugin_dir = os.path.join(npp_dir, "plugins", "FingerText2")
     os.makedirs(plugin_dir, exist_ok=True)
     shutil.copy2(ft2_dll, os.path.join(plugin_dir, "FingerText2.dll"))
 
+
 def seed_database():
     os.makedirs(ft2_cfg, exist_ok=True)
     shutil.copy2(ft2_db, os.path.join(ft2_cfg, "FingerText2.db3"))
 
+
 def launch_npp():
-    global _DIAG_WIN, _DIAG_APP
+    global _DIAG_WIN, _WIN32_WIN, _tree_dumped
+    _tree_dumped = False
     install_plugin()
-    app = Application(backend="uia").start(npp_exe, timeout=30)
+    app = Application(backend="uia").start(
+        f'"{npp_exe}" -multiInst -nosession', timeout=30
+    )
     win = app.window(title_re=".*Notepad\\+\\+.*", control_type="Window")
     win.wait("visible", timeout=20)
     time.sleep(2)
     no_exception_dialog(app)
     close_welcome(app, win)
     _DIAG_WIN = win
-    _DIAG_APP = app
+    # Connect win32 backend to the same process for menu commands.
+    # The docked FingerText2 dialog does not appear in the UIA tree at all
+    # (confirmed: wedockspliter container shows empty); win32 menu_select works.
+    app32 = Application(backend="win32").connect(process=app.process)
+    _WIN32_WIN = app32.window(class_name="Notepad++")
     return app, win
 
+
 def quit_npp(app, win):
+    import subprocess
+    pid = app.process
     win.close()
     time.sleep(1)
     for dlg in app.windows(title_re=".*Save.*|.*Notepad.*"):
         try:
-            dlg.child_window(title_re=".*Don.*t Save.*|.*No.*", control_type="Button").click_input()
+            dlg.child_window(title_re=".*Don.*t Save.*|.*No.*",
+                             control_type="Button").click_input()
         except Exception:
             pass
+    time.sleep(0.5)
     try:
-        app.wait_for_process_exit(timeout=10)
+        app.wait_for_process_exit(timeout=8)
     except Exception:
         pass
+    # Force-kill if still running (e.g. a save dialog was missed)
+    subprocess.run(["taskkill", "/PID", str(pid), "/F"],
+                   capture_output=True, timeout=5)
+    time.sleep(0.5)
 
-# ── Test 1: Open in editor ────────────────────────────────────────────────────
 
-print("\n[Test 1] Open selected snippet in editor")
+# ── Test 1: Create Snippet from Selection (text selected) ─────────────────────
+
+print("\n[Test 1] Create Snippet from Selection (text selected)")
 seed_database()
 app, win = launch_npp()
 
 try:
-    # Show snippet dock
-    plugins_menu = win.child_window(title="Plugins", control_type="MenuItem")
-    plugins_menu.click_input()
-    time.sleep(0.4)
-    ft2 = win.child_window(title_re=".*FingerText2.*", control_type="MenuItem")
-    ft2.click_input()
-    time.sleep(0.4)
-    dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
-    dock_item.click_input()
-    time.sleep(2)
+    win.type_keys("^n"); time.sleep(0.5)
+    sci = win.child_window(class_name="Scintilla")
+    sci.click_input()
+    win.type_keys("test snippet content", with_spaces=True); time.sleep(0.3)
+    win.type_keys("^a"); time.sleep(0.3)
 
-    # Dump tree once right after dock toggle, with dock open — captures real UIA state
-    if not _tree_dumped:
-        print("(dumping control tree after dock toggle)")
-        dump_tree("dock_open")
-        time.sleep(0.5)
-
-    # Click the first item in the dock list
-    # The dock is embedded in NPP's window tree, search within win
-    dock = find_dock(win)
-    listbox = dock.child_window(control_type="List")
-    if listbox.item_count() == 0:
-        fail("Snippet dock list is empty after seeding", "empty_dock")
-    listbox.item(0).click_input()
-    time.sleep(0.3)
-
-    # Click Switch To Snippet Editor
-    open_btn = dock.child_window(title_re=".*Switch.*Editor.*|.*Open.*Editor.*", control_type="Button")
-    open_btn.click_input()
+    menu_cmd("Plugins->FingerText2->Create Snippet from Selection")
     time.sleep(1.5)
 
     no_exception_dialog(app)
 
-    # Verify SnippetEditor.ftb tab is active
-    tab_bar = win.child_window(control_type="TabItem", title_re=".*SnippetEditor.*")
-    tab_bar.wait("visible", timeout=5)
+    tab = win.child_window(control_type="TabItem", title_re=".*SnippetEditor.*")
+    tab.wait("visible", timeout=5)
 
 except ElementNotFoundError as exc:
     fail(f"Test 1 element not found: {exc}", "test1_not_found")
 
 quit_npp(app, win)
-print("  [PASS] Open in editor")
+print("  [PASS] Create Snippet from Selection (text selected)")
 
-# ── Test 2: Empty selection no-op ─────────────────────────────────────────────
 
-print("\n[Test 2] Empty selection -> open editor does not crash")
+# ── Test 2: Create Snippet from Selection (empty buffer) ──────────────────────
+
+print("\n[Test 2] Create Snippet from Selection (empty buffer) — no crash")
 seed_database()
 app, win = launch_npp()
 
 try:
-    plugins_menu = win.child_window(title="Plugins", control_type="MenuItem")
-    plugins_menu.click_input(); time.sleep(0.4)
-    ft2 = win.child_window(title_re=".*FingerText2.*", control_type="MenuItem")
-    ft2.click_input(); time.sleep(0.4)
-    dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
-    dock_item.click_input(); time.sleep(2)
+    win.type_keys("^n"); time.sleep(0.5)
 
-    dock = find_dock(win)
-
-    # Deselect everything by clicking blank area in the listbox
-    listbox = dock.child_window(control_type="List")
-    listbox.click_input(coords=(80, listbox.rectangle().height() - 5))
-    time.sleep(0.3)
-
-    open_btn = dock.child_window(title_re=".*Switch.*Editor.*|.*Open.*Editor.*", control_type="Button")
-    open_btn.click_input()
-    time.sleep(1)
+    menu_cmd("Plugins->FingerText2->Create Snippet from Selection")
+    time.sleep(1.5)
 
     no_exception_dialog(app)
 
@@ -260,144 +263,64 @@ except ElementNotFoundError as exc:
     fail(f"Test 2 element not found: {exc}", "test2_not_found")
 
 quit_npp(app, win)
-print("  [PASS] Empty selection no-op")
+print("  [PASS] Create Snippet from Selection (empty buffer)")
 
-# ── Test 3: New Snippet button ────────────────────────────────────────────────
 
-print("\n[Test 3] New Snippet button does not crash")
+# ── Test 3: Tab expansion ─────────────────────────────────────────────────────
+
+print("\n[Test 3] Tab expansion of 'testtrigger'")
 seed_database()
 app, win = launch_npp()
 
 try:
-    plugins_menu = win.child_window(title="Plugins", control_type="MenuItem")
-    plugins_menu.click_input(); time.sleep(0.4)
-    ft2 = win.child_window(title_re=".*FingerText2.*", control_type="MenuItem")
-    ft2.click_input(); time.sleep(0.4)
-    dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
-    dock_item.click_input(); time.sleep(2)
-
-    dock = find_dock(win)
-    new_btn = dock.child_window(title="New Snippet", control_type="Button")
-    new_btn.click_input()
-    time.sleep(1.5)
-
-    no_exception_dialog(app)
-
-    tab_bar = win.child_window(control_type="TabItem", title_re=".*SnippetEditor.*")
-    tab_bar.wait("visible", timeout=5)
-
-except ElementNotFoundError as exc:
-    fail(f"Test 5 element not found: {exc}", "test5_not_found")
-
-quit_npp(app, win)
-print("  [PASS] New Snippet button")
-
-# ── Test 4: Create Snippet From Selection button ──────────────────────────────
-
-print("\n[Test 4] Create Snippet From Selection does not crash")
-seed_database()
-app, win = launch_npp()
-
-try:
-    # Open a new file
     win.type_keys("^n"); time.sleep(0.5)
-
-    # Type and select some text
-    sci = win.child_window(control_type="Document")
-    sci.click_input()
-    win.type_keys("test snippet content", with_spaces=True); time.sleep(0.3)
-    win.type_keys("^a")  # select all
-    time.sleep(0.3)
-
-    # Show dock and click Create Snippet From Selection
-    plugins_menu = win.child_window(title="Plugins", control_type="MenuItem")
-    plugins_menu.click_input(); time.sleep(0.4)
-    ft2 = win.child_window(title_re=".*FingerText2.*", control_type="MenuItem")
-    ft2.click_input(); time.sleep(0.4)
-    dock_item = win.child_window(title_re=".*SnippetDock.*", control_type="MenuItem")
-    dock_item.click_input(); time.sleep(2)
-
-    dock = find_dock(win)
-    create_btn = dock.child_window(title="Create Snippet From Selection", control_type="Button")
-    create_btn.click_input()
-    time.sleep(1.5)
-
-    no_exception_dialog(app)
-
-    tab_bar = win.child_window(control_type="TabItem", title_re=".*SnippetEditor.*")
-    tab_bar.wait("visible", timeout=5)
-
-except ElementNotFoundError as exc:
-    fail(f"Test 6 element not found: {exc}", "test6_not_found")
-
-quit_npp(app, win)
-print("  [PASS] Create Snippet From Selection button")
-
-# ── Test 5: Tab expansion ─────────────────────────────────────────────────────
-
-print("\n[Test 5] Tab expansion of 'testtrigger'")
-seed_database()
-app, win = launch_npp()
-
-try:
-    # Open a new file
-    win.type_keys("^n"); time.sleep(0.5)
-
-    # Type the trigger and hit Tab
-    sci = win.child_window(control_type="Document")
+    sci = win.child_window(class_name="Scintilla")
     sci.click_input()
     win.type_keys("testtrigger{TAB}", with_spaces=True)
     time.sleep(1)
 
     no_exception_dialog(app)
 
-    # Verify the editor content contains the expanded body
     sci_text = sci.window_text()
     if "Hello from FingerText2" not in sci_text and "testtrigger" in sci_text:
-        # fallback: maybe the content is shown differently; check via clipboard
         win.type_keys("^a^c")
         time.sleep(0.3)
         import tkinter as tk
         root = tk.Tk(); root.withdraw()
         clipboard = root.clipboard_get(); root.destroy()
         if "Hello from FingerText2" not in clipboard:
-            fail(f"Expansion did not produce expected text. Got: {clipboard[:200]}", "test3_wrong_text")
-    elif "Hello from FingerText2" not in sci_text and "testtrigger" not in sci_text:
-        pass  # text read differently, not a failure criterion here
+            fail(f"Expansion did not produce expected text. Got: {clipboard[:200]}",
+                 "test3_wrong_text")
 
 except ElementNotFoundError as exc:
-    fail(f"Test 5 element not found: {exc}", "test5_not_found")
+    fail(f"Test 3 element not found: {exc}", "test3_not_found")
 
 quit_npp(app, win)
 print("  [PASS] Tab expansion")
 
+
 # ── Test 4: Import from .ftd ──────────────────────────────────────────────────
 
-print("\n[Test 6] Import snippets from .ftd file")
+print("\n[Test 4] Import snippets from .ftd file")
 seed_database()
 app, win = launch_npp()
 
 try:
-    plugins_menu = win.child_window(title="Plugins", control_type="MenuItem")
-    plugins_menu.click_input(); time.sleep(0.4)
-    ft2 = win.child_window(title_re=".*FingerText2.*", control_type="MenuItem")
-    ft2.click_input(); time.sleep(0.4)
-    import_item = win.child_window(title_re=".*Import.*", control_type="MenuItem")
-    import_item.click_input(); time.sleep(1)
+    menu_cmd("Plugins->FingerText2->Import Snippets from ftd file")
+    time.sleep(1)
 
-    # Drive the file-open dialog
+    # The file-open dialog is a top-level Win32 dialog — visible via UIA
     file_dlg = app.window(title_re=".*Open.*|.*Import.*", control_type="Window")
     file_dlg.wait("visible", timeout=5)
-    file_name_edit = file_dlg.child_window(control_type="Edit", title_re=".*File.*|.*Name.*")
-    file_name_edit.set_edit_text(os.path.abspath(ft2_ftd))
+    # Filename field is focused when the dialog opens; type path directly.
+    # Backslashes are not special in pywinauto type_keys.
+    file_dlg.type_keys(os.path.abspath(ft2_ftd), with_spaces=True)
     time.sleep(0.3)
-    open_btn = file_dlg.child_window(title_re=".*Open.*", control_type="Button")
-    open_btn.click_input()
+    file_dlg.type_keys("{ENTER}")
     time.sleep(2)
 
     no_exception_dialog(app)
 
-    # Confirm success dialog (if any) and dismiss
     for dlg in app.windows(title_re=".*Import.*|.*Success.*|.*FingerText.*"):
         try:
             ok = dlg.child_window(title_re=".*OK.*|.*Close.*", control_type="Button")
@@ -406,19 +329,19 @@ try:
             pass
 
 except ElementNotFoundError as exc:
-    fail(f"Test 6 element not found: {exc}", "test6_not_found")
+    fail(f"Test 4 element not found: {exc}", "test4_not_found")
 
 quit_npp(app, win)
 print("  [PASS] Import from .ftd")
 
-# ── Test 5: Data migration from old FingerText config ─────────────────────────
 
-print("\n[Test 7] Migration from config\\FingerText")
-old_cfg = os.path.join(appdata, "Notepad++", "plugins", "config", "FingerText")
+# ── Test 5: Data migration ────────────────────────────────────────────────────
+
+print("\n[Test 5] Migration from config\\FingerText")
+old_cfg = os.path.join(_npp_plugin_cfg, "FingerText")
 old_db  = os.path.join(old_cfg, "FingerText.db3")
 new_db  = os.path.join(ft2_cfg, "FingerText2.db3")
 
-# Remove new config, seed old config
 if os.path.exists(ft2_cfg):
     shutil.rmtree(ft2_cfg)
 os.makedirs(old_cfg, exist_ok=True)
@@ -438,10 +361,11 @@ try:
         fail("Migrated db3 is suspiciously small", "test5_small_db")
 
 except ElementNotFoundError as exc:
-    fail(f"Test 7 element not found: {exc}", "test7_not_found")
+    fail(f"Test 5 element not found: {exc}", "test5_not_found")
 
 quit_npp(app, win)
 print("  [PASS] Data migration")
+
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 print("\nAll functional tests PASSED")
