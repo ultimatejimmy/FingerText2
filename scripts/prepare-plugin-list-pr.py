@@ -158,14 +158,36 @@ def check_ft2_validation(output):
     return "missing"
 
 
-def insert_into_plugin_list(json_path, entry):
-    """Insert/replace entry in pl.x{86,64}.json, keeping alphabetical order."""
-    # Read raw bytes first so we can detect the line ending convention.
-    # pl.x86.json uses LF, pl.x64.json uses CRLF; mixing them up produces
-    # a massive diff where every line appears changed.
-    raw_bytes = open(json_path, "rb").read()
-    newline = "\r\n" if b"\r\n" in raw_bytes else "\n"
+def detect_newline_from_git(json_path, repo_dir):
+    """Detect the line ending used by json_path in the upstream git blob.
 
+    core.autocrlf=true (common on Windows) converts LF→CRLF on checkout, so
+    reading the on-disk file gives CRLF even when the upstream stores LF.
+    Reading the blob directly from git bypasses that translation.
+    Falls back to LF if git is unavailable.
+    """
+    rel = os.path.relpath(json_path, repo_dir)
+    result = subprocess.run(
+        ["git", "show", f"upstream/master:{rel.replace(os.sep, '/')}"],
+        cwd=repo_dir, capture_output=True,
+    )
+    if result.returncode == 0:
+        blob = result.stdout
+        return "\r\n" if b"\r\n" in blob else "\n"
+    # Fallback: inspect the on-disk file before autocrlf
+    raw = open(json_path, "rb").read()
+    return "\r\n" if b"\r\n" in raw else "\n"
+
+
+def insert_into_plugin_list(json_path, entry, repo_dir):
+    """Insert/replace entry in pl.x{86,64}.json, keeping alphabetical order."""
+    # Detect the original newline convention from the git blob, not the
+    # checked-out file.  core.autocrlf=true converts LF→CRLF on checkout,
+    # which would make the on-disk file appear CRLF even when upstream is LF,
+    # causing a massive diff where every line appears changed.
+    newline = detect_newline_from_git(json_path, repo_dir)
+
+    raw_bytes = open(json_path, "rb").read()
     data = json.loads(raw_bytes.decode("utf-8"))
 
     plugins_key = "npp-plugins"
@@ -177,11 +199,11 @@ def insert_into_plugin_list(json_path, entry):
     plugins.sort(key=lambda p: p.get("display-name", "").lower())
     data[plugins_key] = plugins
 
-    # nppPluginList uses tab indentation. Use the same line ending as the
-    # original file so git sees only the actual entry change.
+    # Write with the upstream line ending convention so git sees only the
+    # actual entry change.
     with open(json_path, "w", encoding="utf-8", newline=newline) as f:
         json.dump(data, f, indent="\t", ensure_ascii=False)
-        if raw_bytes.endswith(b"\n"):
+        if raw_bytes.endswith(b"\n") or raw_bytes.endswith(b"\r\n"):
             f.write(newline)
 
 
@@ -275,9 +297,9 @@ def main():
     run(["git", "checkout", "-b", branch_name, "upstream/master"], cwd=fork_dir)
 
     print("Inserting x86 entry...")
-    insert_into_plugin_list(fork_dir / "src" / "pl.x86.json", entry32)
+    insert_into_plugin_list(fork_dir / "src" / "pl.x86.json", entry32, fork_dir)
     print("Inserting x64 entry...")
-    insert_into_plugin_list(fork_dir / "src" / "pl.x64.json", entry64)
+    insert_into_plugin_list(fork_dir / "src" / "pl.x64.json", entry64, fork_dir)
 
     if not args.validate:
         print("Skipping validator (use --validate to enable).")
